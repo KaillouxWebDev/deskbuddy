@@ -1,5 +1,8 @@
 import mqtt from 'mqtt';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createSpools } from './spools.js';
+import { fetchPrintInfo } from './printfile.js';
 
 /*
  * Bambu Lab A1 en LECTURE SEULE via son broker MQTT local (port 8883, TLS auto-signé).
@@ -63,6 +66,7 @@ export function derive(raw) {
     layer: num(raw.layer_num),
     totalLayers: num(raw.total_layer_num),
     file: raw.subtask_name || null,
+    gcodeFile: raw.gcode_file || null,
     nozzle: num(raw.nozzle_temper),
     nozzleTarget: num(raw.nozzle_target_temper),
     bed: num(raw.bed_temper),
@@ -76,8 +80,76 @@ export function derive(raw) {
   };
 }
 
+const euros = (v) => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
 export function startPrinter(store, { host, serial, accessCode, mock, dataDir }) {
   const spools = createSpools(store, { dataDir });
+  const historyFile = path.join(dataDir, 'prints.json');
+  let job = null; // impression en cours : début, infos du slicer, estimation
+
+  const prices = () => {
+    const s = store.get('settings') || {};
+    return { perG: (s.filamentPriceKg ?? 10) / 1000, kwh: s.kwhPrice ?? 0.1871, watts: s.printerWatts ?? 100 };
+  };
+
+  /** Ce que le slicer a calculé pour l'impression en cours (poids par filament, durée). */
+  const loadInfo = async (j, d) => {
+    const info = mock
+      ? { file: d.file, predictionS: 5400, filaments: [{ id: 1, type: 'PLA', color: '#2F8F4E', usedG: 42.5, usedM: 14.2 }] }
+      : await fetchPrintInfo({ host, accessCode, subtask: d.file, gcodeFile: d.gcodeFile, dataDir });
+    if (job !== j) return; // impression déjà terminée entre-temps
+    if (!info) {
+      j.infoError = true;
+      store.update('printer', { job: publicJob(j) });
+      return;
+    }
+    j.info = info;
+    const p = prices();
+    const grams = info.filaments.reduce((sum, f) => sum + f.usedG, 0);
+    const elec = ((info.predictionS || 0) / 3600) * (p.watts / 1000) * p.kwh;
+    j.estimate = { grams: Math.round(grams), cost: grams * p.perG + elec };
+    // Assez de filament sur les bobines chargées ?
+    for (const f of info.filaments) {
+      const s = spools.match(f);
+      if (s && !s.needsLevel && s.grams < f.usedG) {
+        store.toast('warn', 'FILAMENT INSUFFISANT', `${s.material} ${s.colorName.toLowerCase()} : ~${Math.round(s.grams)} g restants, ${Math.round(f.usedG)} g nécessaires`, { sticky: true });
+      }
+    }
+    store.update('printer', { job: publicJob(j) });
+  };
+
+  const publicJob = (j) => (j ? { start: j.start, estimate: j.estimate || null, infoError: Boolean(j.infoError) } : null);
+
+  /** Fin d'impression : décompte du stock et coût réel. */
+  const finishJob = (fraction) => {
+    const j = job;
+    job = null;
+    if (!j) return null;
+    const p = prices();
+    const hours = (Date.now() - j.start) / 3600_000;
+    const elec = hours * (p.watts / 1000) * p.kwh;
+    if (!j.info) {
+      log('Consommation inconnue : fichier d\'impression illisible', 'info');
+      return null;
+    }
+    const used = spools.consume(j.info.filaments, fraction);
+    const grams = used.reduce((sum, u) => sum + u.grams, 0);
+    const cost = grams * p.perG + elec;
+    log(`Consommé ${Math.round(grams)} g (${used.map((u) => u.spool).join(', ')}) · coût ~${euros(cost)}`, 'info');
+    try {
+      let hist = [];
+      try {
+        hist = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+      } catch {
+        /* premier historique */
+      }
+      hist.unshift({ at: Date.now(), file: j.info.file, fraction, grams: Math.round(grams), filamentCost: grams * p.perG, elecCost: elec, cost });
+      fs.writeFileSync(historyFile, JSON.stringify(hist.slice(0, 100), null, 2));
+    } catch {
+      /* historique facultatif */
+    }
+    return { grams: Math.round(grams), cost };
+  };
   const journal = [];
   const log = (text, level = 'info') => {
     journal.unshift({ at: Date.now(), text, level });
@@ -103,10 +175,23 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
       alert = { ...alert, paused: d.state === 'PAUSE' || d.state === 'FAILED' };
     }
 
+    // Début de suivi : à chaque nouvelle impression (ou au redémarrage du dashboard pendant une impression).
+    if (!job && ACTIVE.includes(d.state)) {
+      job = { start: Date.now() };
+      loadInfo(job, d);
+    }
+
     if (prev && prev.state !== d.state) {
       if (d.state === 'FINISH') {
         log(`Impression terminée : ${d.file || 'sans nom'}`, 'success');
-        store.toast('success', 'IMPRESSION TERMINÉE', d.file || '', { sticky: true });
+        const res = finishJob(1);
+        store.toast('success', 'IMPRESSION TERMINÉE', `${d.file || ''}${res ? ` · ${res.grams} g · ${euros(res.cost)}` : ''}`, { sticky: true });
+      } else if (job && (d.state === 'FAILED' || d.state === 'IDLE') && ACTIVE.includes(prev.state)) {
+        // Impression annulée : on décompte au prorata de l'avancement.
+        finishJob((prev.percent || 0) / 100);
+      }
+      if (d.state === 'FINISH') {
+        /* déjà traité */
       } else if (d.state === 'RUNNING' && !ACTIVE.includes(prev.state)) {
         log(`Début impression : ${d.file || 'sans nom'}`);
       } else if (d.state === 'FAILED') {
@@ -118,7 +203,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     spools.observe(d.trays || []);
     d.trays = (d.trays || []).map(({ raw, ...t }) => t); // le brut ne sert qu'au journal de debug
     prev = d;
-    store.update('printer', { ...d, alert, journal: [...journal] });
+    store.update('printer', { ...d, alert, journal: [...journal], job: publicJob(job) });
   };
 
   store.register('printer:ack', () => {

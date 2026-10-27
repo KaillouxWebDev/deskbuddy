@@ -552,3 +552,16 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .spool-btn { min-height: 36px; background: transparent; border: 1px solid var(--line); color: var(--dim); font-family: var(--display); font-size: 11px; letter-spacing: 1px; cursor: pointer; }
 .spool .bar { flex: none; height: 6px; }
 .spool.is-loaded.is-low, .spool.is-low { border-color: var(--danger); }
+.spool.needs-level { border-color: var(--sec); }
+.level-pick { display: flex; flex-direction: column; gap: 6px; }
+.level-btns { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.level-btns button { min-height: 40px; padding: 0; background: var(--panel); border: 1px solid var(--sec); color: var(--sec); font-family: var(--display); font-size: 14px; cursor: pointer; }
+.spool-btns { display: flex; gap: 6px; }
+.spool-btns .spool-btn { flex: 1; }
+button.spool-top { background: transparent; border: 0; padding: 0; color: inherit; text-align: left; cursor: pointer; min-height: 36px; width: 100%; }
+.spool.is-editing { border-color: var(--sec); grid-column: span 2; }
+.grams-step { display: grid; grid-template-columns: 1fr 1fr 1.6fr 1fr 1fr; gap: 4px; align-items: center; }
+.grams-step button { min-height: 40px; padding: 0; background: var(--panel); border: 1px solid var(--line); color: var(--prim); font-family: var(--display); font-size: 14px; cursor: pointer; }
+.grams-val { text-align: center; font-family: var(--display); font-size: 18px; color: var(--sec); }
+.spool-btn.is-primary { background: var(--prim); color: var(--bg); border-color: var(--prim); }
+.stock-grid { align-items: start; }

@@ -25,7 +25,10 @@ export const DEFAULT_SETTINGS = {
   sweep: true,
   rain: false,
   lightning: false,
-  wxRangeKm: 120
+  wxRangeKm: 120,
+  filamentPriceKg: 10,
+  kwhPrice: 0.1871,
+  printerWatts: 100
 };
 
 /** Mode "auto" : clair de 8 h à 19 h, sombre le reste du temps. */

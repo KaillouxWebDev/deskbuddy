@@ -13,7 +13,10 @@ export const DEFAULT_SETTINGS = {
   sweep: true,
   rain: false,
   lightning: false,
-  wxRangeKm: 120
+  wxRangeKm: 120,
+  filamentPriceKg: 10, // € le kilo
+  kwhPrice: 0.1871, // € TTC le kWh
+  printerWatts: 100 // consommation moyenne de l'A1 en impression
 };
 
 const ENUMS = {

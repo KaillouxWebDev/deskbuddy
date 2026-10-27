@@ -2,16 +2,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /*
- * Stock de filament, alimenté automatiquement par l'AMS : chaque bobine Bambu a une puce RFID
- * avec un identifiant unique. Dès qu'elle passe dans l'AMS, on l'ajoute (ou on la met à jour) avec
- * sa matière, sa couleur, son poids nominal et le pourcentage restant estimé par l'imprimante.
- * Hors de l'AMS, la bobine garde sa dernière valeur connue.
+ * Stock de filament.
+ * - Identification automatique : chaque bobine Bambu a une puce RFID lue par l'AMS (identifiant unique,
+ *   matière, couleur, poids nominal). Dès qu'elle passe dans l'AMS, elle est ajoutée à l'inventaire.
+ * - Quantité restante : l'AMS lite n'estime pas le restant (il annonce toujours 100 %). On tient donc
+ *   notre propre compte : niveau de départ indiqué une fois (plein, ¾, ½, ¼), puis on retire le poids
+ *   calculé par le slicer à chaque impression. Un recalage manuel reste possible à tout moment.
  */
 
 const LOW_PCT = 15;
 const DEBUG_MAX_LINES = 300;
 
-// Noms de couleur approximatifs, pour afficher « Bleu » plutôt que #1F4FD1.
 const COLOR_NAMES = [
   ['Noir', [20, 20, 20]],
   ['Blanc', [245, 245, 245]],
@@ -22,6 +23,7 @@ const COLOR_NAMES = [
   ['Bordeaux', [110, 20, 40]],
   ['Orange', [240, 120, 30]],
   ['Jaune', [245, 210, 30]],
+  ['Jaune pâle', [247, 217, 89]],
   ['Beige', [225, 200, 160]],
   ['Marron', [110, 70, 40]],
   ['Vert', [40, 150, 70]],
@@ -45,7 +47,6 @@ function colorName(hex) {
   let best = COLOR_NAMES[0];
   let bestD = Infinity;
   for (const c of COLOR_NAMES) {
-    // distance pondérée (l'œil est plus sensible au vert)
     const d = 2 * (rgb[0] - c[1][0]) ** 2 + 4 * (rgb[1] - c[1][1]) ** 2 + 3 * (rgb[2] - c[1][2]) ** 2;
     if (d < bestD) {
       bestD = d;
@@ -64,13 +65,19 @@ export function createSpools(store, { dataDir }) {
   } catch {
     /* premier démarrage */
   }
+  // Migration v0.5 → v0.6 : l'ancien « remain » venait de l'AMS et n'est pas fiable sur l'AMS lite.
+  for (const s of Object.values(spools)) {
+    if (!s.tracked) Object.assign(s, { tracked: true, grams: s.weightG || 1000, needsLevel: true, lowNotified: false });
+  }
   const lastRaw = new Map();
+
+  const view = (s) => ({ ...s, pct: s.weightG ? Math.max(0, Math.min(100, Math.round((s.grams / s.weightG) * 100))) : null });
 
   let saveTimer;
   const publish = () => {
-    const list = Object.values(spools).sort(
-      (a, b) => (a.archived - b.archived) || ((a.slot ?? 99) - (b.slot ?? 99)) || ((b.remain ?? -1) - (a.remain ?? -1))
-    );
+    const list = Object.values(spools)
+      .map(view)
+      .sort((a, b) => a.archived - b.archived || (a.slot ?? 99) - (b.slot ?? 99) || b.grams - a.grams);
     store.set('spools', list);
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -82,7 +89,6 @@ export function createSpools(store, { dataDir }) {
     }, 1000);
   };
 
-  /** Journal de ce que l'AMS envoie réellement, pour vérifier les champs sur ta machine. */
   const debug = (slot, raw) => {
     const key = JSON.stringify(raw);
     if (lastRaw.get(slot) === key) return;
@@ -101,6 +107,15 @@ export function createSpools(store, { dataDir }) {
     }
   };
 
+  const checkLow = (s) => {
+    const pct = s.weightG ? (s.grams / s.weightG) * 100 : 100;
+    if (!s.needsLevel && pct <= LOW_PCT && !s.lowNotified) {
+      s.lowNotified = true;
+      store.toast('warn', 'BOBINE PRESQUE VIDE', `${s.material} ${s.colorName.toLowerCase()} · ~${Math.round(s.grams)} g`, { sticky: true });
+    }
+    if (pct > LOW_PCT + 10) s.lowNotified = false;
+  };
+
   /** Appelé à chaque message de l'imprimante avec le contenu des emplacements de l'AMS. */
   const observe = (trays) => {
     let changed = false;
@@ -110,54 +125,102 @@ export function createSpools(store, { dataDir }) {
       if (!t.uuid) continue;
       seen.add(t.uuid);
       const prev = spools[t.uuid];
-      const remain = t.remain ?? prev?.remain ?? null;
-      const weightG = t.weightG || prev?.weightG || null;
-      const next = {
-        uuid: t.uuid,
-        material: t.material || prev?.material || t.type || '?',
-        type: t.type || prev?.type || null,
-        color: t.color || prev?.color || null,
-        colorName: colorName(t.color || prev?.color),
-        weightG,
-        remain,
-        grams: remain !== null && weightG ? Math.round((weightG * remain) / 100) : null,
-        slot: t.slot,
-        firstSeen: prev?.firstSeen || Date.now(),
-        lastSeen: Date.now(),
-        archived: prev?.archived && remain > 0 ? prev.archived : false,
-        lowNotified: prev?.lowNotified || false
-      };
-      if (remain !== null && remain <= LOW_PCT && !next.lowNotified) {
-        next.lowNotified = true;
-        store.toast('warn', 'BOBINE PRESQUE VIDE', `${next.material} ${next.colorName.toLowerCase()} · ~${next.grams ?? '?'} g`, { sticky: true });
-      }
-      if (remain !== null && remain > LOW_PCT + 10) next.lowNotified = false;
-      const before = prev && JSON.stringify({ ...prev, lastSeen: 0 });
-      const after = JSON.stringify({ ...next, lastSeen: 0 });
-      spools[t.uuid] = next;
-      if (before !== after) changed = true;
-    }
-    // Bobines sorties de l'AMS : on garde tout, sauf l'emplacement.
-    for (const s of Object.values(spools)) {
-      if (s.slot !== null && !seen.has(s.uuid) && trays.length) {
-        s.slot = null;
+      if (!prev) {
+        const weightG = t.weightG || 1000;
+        spools[t.uuid] = {
+          uuid: t.uuid,
+          tracked: true,
+          material: t.material || t.type || '?',
+          type: t.type || null,
+          color: t.color || null,
+          colorName: colorName(t.color),
+          weightG,
+          grams: weightG, // supposée pleine tant que tu n'as pas indiqué son niveau
+          needsLevel: true,
+          slot: t.slot,
+          firstSeen: Date.now(),
+          lastSeen: Date.now(),
+          archived: false,
+          lowNotified: false
+        };
+        store.toast('info', 'NOUVELLE BOBINE', `${spools[t.uuid].material} ${spools[t.uuid].colorName.toLowerCase()} · indique son niveau dans STOCK`);
         changed = true;
+        continue;
+      }
+      if (prev.slot !== t.slot || prev.archived) {
+        prev.slot = t.slot;
+        prev.archived = false;
+        changed = true;
+      }
+      prev.lastSeen = Date.now();
+    }
+    if (trays.length) {
+      for (const s of Object.values(spools)) {
+        if (s.slot !== null && !seen.has(s.uuid)) {
+          s.slot = null;
+          changed = true;
+        }
       }
     }
     if (changed) publish();
   };
 
+  /** Bobine chargée correspondant à un filament du slicer (même couleur et même matière de préférence). */
+  const match = (filament) => {
+    const loaded = Object.values(spools).filter((s) => s.slot !== null);
+    const sameColor = (s) => s.color && filament.color && s.color.toUpperCase() === filament.color.toUpperCase();
+    const sameType = (s) => !filament.type || (s.type || '').toUpperCase() === filament.type.toUpperCase();
+    return (
+      loaded.find((s) => sameColor(s) && sameType(s)) ||
+      loaded.find(sameColor) ||
+      (loaded.filter(sameType).length === 1 ? loaded.find(sameType) : null) ||
+      null
+    );
+  };
+
+  /** Retire du stock le filament consommé ; renvoie le détail pour le journal. */
+  const consume = (filaments, fraction) => {
+    const done = [];
+    for (const f of filaments) {
+      const g = Math.round(f.usedG * fraction * 10) / 10;
+      if (!g) continue;
+      const s = match(f);
+      if (s) {
+        s.grams = Math.max(0, s.grams - g);
+        checkLow(s);
+      }
+      done.push({ grams: g, spool: s ? `${s.material} ${s.colorName.toLowerCase()}` : `${f.type || '?'} ${f.color || ''} (bobine non reconnue)` });
+    }
+    publish();
+    return done;
+  };
+
+  store.register('spool:level', ({ uuid, fraction }) => {
+    const s = spools[uuid];
+    const f = Number(fraction);
+    if (!s || !(f >= 0 && f <= 1)) return;
+    s.grams = Math.round(s.weightG * f);
+    s.needsLevel = false;
+    s.lowNotified = false;
+    checkLow(s);
+    publish();
+  });
+  store.register('spool:grams', ({ uuid, grams }) => {
+    const s = spools[uuid];
+    const g = Number(grams);
+    if (!s || !Number.isFinite(g)) return;
+    s.grams = Math.max(0, Math.min(s.weightG * 1.2, Math.round(g)));
+    s.needsLevel = false;
+    s.lowNotified = false;
+    checkLow(s);
+    publish();
+  });
   store.register('spool:archive', ({ uuid, archived }) => {
     if (!spools[uuid]) return;
     spools[uuid].archived = Boolean(archived);
     publish();
   });
-  store.register('spool:forget', ({ uuid }) => {
-    if (!spools[uuid] || spools[uuid].slot !== null) return;
-    delete spools[uuid];
-    publish();
-  });
 
   publish();
-  return { observe };
+  return { observe, match, consume };
 }

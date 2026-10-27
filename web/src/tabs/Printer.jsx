@@ -87,6 +87,11 @@ export default function Printer({ state, now, send }) {
         <div className="print-meta">
           <div className="small soft center ellipsis">{p.file || 'aucun fichier'}</div>
           {p.state === 'RUNNING' && end && <div className="small sec center">fin estimée vers {end}</div>}
+          {p.job?.estimate && (
+            <div className="small dim center">
+              ~{p.job.estimate.grams} g · ~{p.job.estimate.cost.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+            </div>
+          )}
         </div>
       </section>
 
@@ -110,9 +115,12 @@ export default function Printer({ state, now, send }) {
                 <div key={t.slot} className={`tray${on ? ' is-active' : ''}`}>
                   <span className="swatch" style={{ background: t.color || 'transparent' }} />
                   <span className="small">{t.type || 'Vide'}{on ? ' ▶' : ''}</span>
-                  {t.remain !== null && t.remain !== undefined && (
-                    <span className={`small ${t.remain <= 15 ? 'danger' : 'dim'}`}>{t.remain}%</span>
-                  )}
+                  {(() => {
+                    const sp = (state.spools || []).find((s) => s.uuid === t.uuid);
+                    if (!sp) return null;
+                    if (sp.needsLevel) return <span className="small sec">niveau ?</span>;
+                    return <span className={`small ${sp.pct <= 15 ? 'danger' : 'dim'}`}>~{sp.pct}%</span>;
+                  })()}
                 </div>
               );
             })}
