@@ -3,9 +3,12 @@ import { writeJson } from '../lib/fsx.js';
 import path from 'node:path';
 
 export const DEFAULT_SETTINGS = {
-  theme: 'dark', // dark | light | auto
+  themeId: 'base', // voir web/src/lib/theme.js
+  theme: 'dark', // mode : dark | light | auto
   primary: 'vert',
   secondary: 'ambre',
+  modernPrimary: 'menthe',
+  modernSecondary: 'peche',
   brightness: 80, // %
   sleepEnabled: true,
   sleepFrom: '23:00',
@@ -20,8 +23,12 @@ export const DEFAULT_SETTINGS = {
   printerWatts: 100 // consommation moyenne de l'A1 en impression
 };
 
+const PASTELS = ['menthe', 'lavande', 'peche', 'ciel', 'rose'];
 const ENUMS = {
+  themeId: ['base', 'modern', 'abri', 'abri-ambre', 'macrodata', 'fsociety', 'nuit-rouge', 'neon-2049'],
   theme: ['dark', 'light', 'auto'],
+  modernPrimary: PASTELS,
+  modernSecondary: PASTELS,
   primary: ['vert', 'cyan', 'ambre', 'rose'],
   secondary: ['ambre', 'rouge', 'cyan', 'violet'],
   rangeKm: [15, 30, 60, 100],

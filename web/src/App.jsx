@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDeskbuddy, useNow } from './lib/useDeskbuddy.js';
-import { DEFAULT_SETTINGS, applyTheme, resolveMode, themeVars } from './lib/theme.js';
+import { DEFAULT_SETTINGS, applyTheme, resolveMode, themeOf, themeVars } from './lib/theme.js';
+import BootScreen from './components/BootScreen.jsx';
 import Header from './components/Header.jsx';
 import Toasts from './components/Toasts.jsx';
 import AlertModal from './components/AlertModal.jsx';
@@ -49,12 +50,23 @@ export default function App() {
   const now = useNow(1000);
   const date = new Date(now);
   const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...state.settings }), [state.settings]);
-  const mode = resolveMode(settings.theme, date);
+  const mode = resolveMode(settings, date);
+  const theme = themeOf(settings.themeId);
 
   useEffect(() => {
-    applyTheme(themeVars(settings, mode));
+    applyTheme(themeVars(settings, mode), theme);
     document.documentElement.dataset.mode = mode;
-  }, [settings.primary, settings.secondary, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings.themeId, settings.primary, settings.secondary, settings.modernPrimary, settings.modernSecondary, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Écran de démarrage : au lancement (donc aussi après une mise à jour) et à chaque changement de thème.
+  const loadedThemeId = state.settings ? settings.themeId : null;
+  const shownTheme = useRef(null);
+  const [boot, setBoot] = useState(null);
+  useEffect(() => {
+    if (!loadedThemeId || shownTheme.current === loadedThemeId) return;
+    shownTheme.current = loadedThemeId;
+    setBoot(loadedThemeId);
+  }, [loadedThemeId]);
 
   // Nouvelle version déployée (le conteneur a redémarré avec un autre commit) : on recharge la page.
   const commit = state.meta?.commit;
@@ -104,6 +116,7 @@ export default function App() {
         {tab === 'system' && <System {...props} mode={mode} />}
       </main>
       <Toasts toasts={toasts} onClose={dismiss} />
+      {boot && <BootScreen key={boot} theme={themeOf(boot)} onDone={() => setBoot(null)} />}
       {showAlert && tab === 'printer' && <AlertModal alert={alert} printer={state.printer} send={send} />}
       <SleepOverlay asleep={Boolean(state.screen?.asleep)} onWake={() => send('screen:wake')} />
     </div>

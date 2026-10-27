@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PRIMARIES, SECONDARIES } from '../lib/theme.js';
+import { PASTELS, PRIMARIES, SECONDARIES, THEMES, themeOf } from '../lib/theme.js';
 import NumPad from '../components/NumPad.jsx';
 import FieldPad from '../components/FieldPad.jsx';
 import WifiModal from '../components/WifiModal.jsx';
@@ -21,6 +21,19 @@ function Swatches({ items, value, mode, onPick }) {
         </button>
       ))}
     </div>
+  );
+}
+
+/** Vignette d'un thème : sa palette sombre et sa police, pour juger d'un coup d'œil. */
+function ThemeTile({ theme, settings, on, onPick }) {
+  const v = theme.palette('dark', settings);
+  return (
+    <button type="button" className={`theme-tile${on ? ' is-on' : ''}`} aria-pressed={on} onClick={onPick}>
+      <span className="theme-chip" style={{ background: v.bg, color: v.prim, borderColor: v.line, fontFamily: theme.fonts.display }}>
+        Aa <i style={{ background: v.prim }} /> <i style={{ background: v.sec }} />
+      </span>
+      <span className="theme-name">{theme.name.toUpperCase()}</span>
+    </button>
   );
 }
 
@@ -60,8 +73,15 @@ export default function System({ state, settings, send, mode }) {
   const sys = state.system || {};
   const screen = state.screen || {};
   const meta = state.meta || {};
-  const primary = PRIMARIES.find((c) => c.id === settings.primary);
-  const secondary = SECONDARIES.find((c) => c.id === settings.secondary);
+  const theme = themeOf(settings.themeId);
+  // Couleurs personnalisables : seulement pour Base (néons) et Modern (pastels).
+  const find = (list, id) => list.find((c) => c.id === id) || list[0];
+  const colors =
+    theme.custom === 'base'
+      ? { list1: PRIMARIES, list2: SECONDARIES, key1: 'primary', key2: 'secondary', primary: find(PRIMARIES, settings.primary), secondary: find(SECONDARIES, settings.secondary) }
+      : theme.custom === 'modern'
+        ? { list1: PASTELS, list2: PASTELS, key1: 'modernPrimary', key2: 'modernSecondary', primary: find(PASTELS, settings.modernPrimary), secondary: find(PASTELS, settings.modernSecondary) }
+        : null;
   const home = state.home;
   const wifi = state.wifi || {};
   const [modal, setModal] = useState(null); // 'position' | 'wifi'
@@ -72,29 +92,45 @@ export default function System({ state, settings, send, mode }) {
         <span className="caption">AFFICHAGE</span>
 
         <div className="setting">
-          <span className="label">MODE{settings.theme === 'auto' ? ` · AUTO (${mode === 'dark' ? 'sombre' : 'clair'})` : ''}</span>
-          <div className="grid3 gap8">
-            {[
-              ['dark', 'SOMBRE'],
-              ['light', 'CLAIR'],
-              ['auto', 'AUTO']
-            ].map(([id, label]) => (
-              <button key={id} type="button" className={`btn${settings.theme === id ? ' btn-prim' : ''}`} aria-pressed={settings.theme === id} onClick={() => set({ theme: id })}>
-                {label}
-              </button>
+          <span className="label">THÈME · {theme.name.toUpperCase()}</span>
+          <div className="theme-grid">
+            {THEMES.map((t) => (
+              <ThemeTile key={t.id} theme={t} settings={settings} on={t.id === theme.id} onPick={() => set({ themeId: t.id })} />
             ))}
           </div>
         </div>
 
-        <div className="setting">
-          <span className="label">COULEUR PRIMAIRE · {primary?.name.toUpperCase()}</span>
-          <Swatches items={PRIMARIES} value={settings.primary} mode={mode} onPick={(id) => set({ primary: id })} />
-        </div>
+        {theme.light ? (
+          <div className="setting">
+            <span className="label">MODE{settings.theme === 'auto' ? ` · AUTO (${mode === 'dark' ? 'sombre' : 'clair'})` : ''}</span>
+            <div className="grid3 gap8">
+              {[
+                ['dark', 'SOMBRE'],
+                ['light', 'CLAIR'],
+                ['auto', 'AUTO']
+              ].map(([id, label]) => (
+                <button key={id} type="button" className={`btn${settings.theme === id ? ' btn-prim' : ''}`} aria-pressed={settings.theme === id} onClick={() => set({ theme: id })}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <span className="small dim">Ce thème est toujours sombre.</span>
+        )}
 
-        <div className="setting">
-          <span className="label">COULEUR SECONDAIRE · {secondary?.name.toUpperCase()}</span>
-          <Swatches items={SECONDARIES} value={settings.secondary} mode={mode} onPick={(id) => set({ secondary: id })} />
-        </div>
+        {colors && (
+          <>
+            <div className="setting">
+              <span className="label">COULEUR PRIMAIRE · {colors.primary.name.toUpperCase()}</span>
+              <Swatches items={colors.list1} value={colors.primary.id} mode={mode} onPick={(id) => set({ [colors.key1]: id })} />
+            </div>
+            <div className="setting">
+              <span className="label">COULEUR SECONDAIRE · {colors.secondary.name.toUpperCase()}</span>
+              <Swatches items={colors.list2} value={colors.secondary.id} mode={mode} onPick={(id) => set({ [colors.key2]: id })} />
+            </div>
+          </>
+        )}
 
         <div className="setting">
           <span className="label">LUMINOSITÉ{!screen.backlight ? ' · écran non détecté ou service hôte absent' : ''}</span>

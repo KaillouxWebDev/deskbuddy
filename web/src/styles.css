@@ -667,3 +667,151 @@ button.spool-top { background: transparent; border: 0; padding: 0; color: inheri
 .costs { margin-top: 6px; padding-top: 14px; padding-bottom: 4px; gap: 10px; }
 .place-card { padding-top: 8px; padding-bottom: 8px; }
 .place-row { min-height: 48px; }
+
+/* =====================================================================
+ * THÈMES : effets d'écran propres à chaque thème (les couleurs et polices
+ * passent par les variables CSS, voir lib/theme.js).
+ * ===================================================================== */
+
+/* Écran cathodique (Abri) : lignes de balayage, vignettage, halo du phosphore. Statique : rien à calculer. */
+html[data-theme^='abri'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+}
+html[data-theme^='abri'] body { text-shadow: 0 0 6px color-mix(in srgb, var(--prim) 55%, transparent); font-size: 17px; }
+html[data-theme^='abri'] .tab { font-size: 19px; }
+html[data-theme^='abri'] .value { font-size: 26px; }
+html[data-theme^='abri'] .small { font-size: 14px; }
+html[data-theme^='abri'] .label,
+html[data-theme^='abri'] .caption { font-size: 13px; }
+html[data-theme^='abri'] .toast-text { font-size: 14px; }
+
+/* Macrodata : vignettage et texte légèrement lumineux en sombre, sobre en clair. */
+html[data-theme='macrodata'][data-mode='dark'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: radial-gradient(ellipse at center, transparent 65%, rgba(0, 0, 0, 0.5) 100%);
+}
+html[data-theme='macrodata'][data-mode='dark'] body { text-shadow: 0 0 8px color-mix(in srgb, var(--prim) 35%, transparent); }
+html[data-theme='macrodata'] .callsign { font-weight: 700; }
+html[data-theme='macrodata'][data-mode='light'] .card { box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04); }
+
+/* fsociety : titres décalés façon glitch, onglet actif en rouge, invite de commande devant les sections. */
+html[data-theme='fsociety'] .callsign { font-weight: 700; letter-spacing: -0.5px; text-shadow: 2px 0 rgba(255, 43, 43, 0.75), -2px 0 rgba(0, 255, 255, 0.35); }
+html[data-theme='fsociety'] .tab.is-active { background: var(--sec); color: #000; }
+html[data-theme='fsociety'] .caption::before { content: '> '; color: var(--sec); }
+
+/* Nuit rouge : tout un peu plus sombre pour ne pas éblouir. */
+html[data-theme='nuit-rouge'] .content,
+html[data-theme='nuit-rouge'] .header { filter: brightness(0.85); }
+
+/* Néon 2049 : halo magenta, titres futuristes, chiffres restés en police lisible. */
+html[data-theme='neon-2049'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: radial-gradient(ellipse at center, transparent 65%, rgba(0, 0, 0, 0.5) 100%);
+}
+html[data-theme='neon-2049'] body { text-shadow: 0 0 7px color-mix(in srgb, var(--prim) 45%, transparent); }
+html[data-theme='neon-2049'] .tab { font-size: 12px; letter-spacing: 2px; }
+html[data-theme='neon-2049'] .callsign { font-weight: 700; letter-spacing: 2px; }
+html[data-theme='neon-2049'] .value,
+html[data-theme='neon-2049'] .header-time,
+html[data-theme='neon-2049'] .np-value,
+html[data-theme='neon-2049'] .sat-countdown { font-family: var(--mono); }
+html[data-theme='neon-2049'] .card { box-shadow: inset 0 0 12px color-mix(in srgb, var(--sec) 8%, transparent); }
+
+/* Modern : sans-serif arrondie, coins arrondis, chiffres à chasse fixe, pas de halo. */
+html[data-theme='modern'] body { font-weight: 600; }
+html[data-theme='modern'] .value,
+html[data-theme='modern'] .wx-temp,
+html[data-theme='modern'] .callsign,
+html[data-theme='modern'] .header-time,
+html[data-theme='modern'] .np-value,
+html[data-theme='modern'] .sat-countdown { font-variant-numeric: tabular-nums; font-weight: 800; }
+html[data-theme='modern'] .callsign { letter-spacing: 0; }
+html[data-theme='modern'] .tab { letter-spacing: 0.5px; font-weight: 700; font-size: 14px; }
+html[data-theme='modern'] .caption,
+html[data-theme='modern'] .label { letter-spacing: 0.8px; font-weight: 700; }
+html[data-theme='modern'] .card,
+html[data-theme='modern'] .info-card,
+html[data-theme='modern'] .spool,
+html[data-theme='modern'] .wifi-row,
+html[data-theme='modern'] .np-field,
+html[data-theme='modern'] .kb-key,
+html[data-theme='modern'] .tray,
+html[data-theme='modern'] .alert-card,
+html[data-theme='modern'] .toast { border-radius: 14px; }
+html[data-theme='modern'] .btn,
+html[data-theme='modern'] .square-btn,
+html[data-theme='modern'] .row,
+html[data-theme='modern'] .spool-btn,
+html[data-theme='modern'] .tab.is-active { border-radius: 12px; }
+html[data-theme='modern'] .radar-ring,
+html[data-theme='modern'] .radar-axis,
+html[data-theme='modern'] .radar-diag { stroke-dasharray: 2 4; }
+html[data-theme='modern'][data-mode='light'] .card { box-shadow: 0 2px 10px rgba(60, 50, 120, 0.06); border-color: transparent; }
+
+/* Thèmes monochromes (Abri, Nuit rouge) : pas de rouge distinct, donc les alertes ressortent
+   par l'inversion des couleurs et le clignotement, pour ne jamais se fondre dans le reste. */
+html[data-mono-alerts] .alert-card { background: var(--prim); color: var(--bg); border: 4px double var(--bg); outline: 3px solid var(--prim); }
+html[data-mono-alerts] .alert-card * { color: var(--bg) !important; text-shadow: none; }
+html[data-mono-alerts] .alert-card .btn-danger { background: var(--bg); color: var(--prim) !important; border-color: var(--bg); }
+html[data-mono-alerts] .alert-card .btn-danger * { color: var(--prim) !important; }
+html[data-mono-alerts] .toast-warn { background: var(--prim); color: var(--bg); border-color: var(--prim); animation: toast-in 0.25s ease-out, mono-blink 1s steps(2) 3; }
+html[data-mono-alerts] .toast-warn * { color: var(--bg) !important; text-shadow: none; }
+html[data-mono-alerts] .dot-danger,
+html[data-mono-alerts] .live.is-off .dot { background: var(--prim); animation: mono-blink 0.6s steps(2) infinite; }
+html[data-mono-alerts] .danger,
+html[data-mono-alerts] .tone-danger,
+html[data-mono-alerts] .plane.is-emergency { animation: mono-blink 0.8s steps(2) infinite; font-weight: 700; }
+html[data-mono-alerts] .spool.is-low { border: 2px dashed var(--prim); }
+@keyframes mono-blink { 50% { opacity: 0.25; } }
+
+/* ---------- Écran de démarrage ---------- */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.4s;
+  cursor: pointer;
+}
+.boot.is-leaving { opacity: 0; }
+.boot-inner { width: 620px; display: flex; flex-direction: column; gap: 10px; font-family: var(--display); }
+.boot-title { font-size: 34px; color: var(--prim); letter-spacing: 3px; margin-bottom: 12px; }
+.boot-line { font-size: 18px; color: var(--text-soft); animation: boot-in 0.25s ease-out; }
+.boot-line.is-cmd { color: var(--prim); }
+.boot-title { animation: boot-in 0.35s ease-out; }
+.boot-caret { font-size: 22px; color: var(--prim); }
+.boot-skip { position: absolute; bottom: 18px; right: 24px; }
+@keyframes boot-in { from { opacity: 0; transform: translateY(4px); } }
+html[data-theme='modern'] .boot-inner { align-items: center; text-align: center; }
+html[data-theme='modern'] .boot-title { font-size: 44px; font-weight: 800; letter-spacing: 0; }
+html[data-theme='modern'] .boot-caret { display: none; }
+html[data-theme^='abri'] .boot-title,
+html[data-theme^='abri'] .boot-line { font-size: 24px; }
+html[data-theme='fsociety'] .boot-title { color: var(--text-soft); font-size: 20px; letter-spacing: 0; }
+html[data-theme='neon-2049'] .boot-title { font-weight: 700; color: var(--sec); }
+
+/* ---------- Choix du thème (réglages) ---------- */
+.theme-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.theme-tile { min-height: 64px; padding: 6px; border: 1px solid var(--line); background: transparent; cursor: pointer; display: flex; flex-direction: column; gap: 5px; align-items: stretch; color: var(--prim); }
+.theme-tile.is-on { border: 2px solid var(--prim); padding: 5px; }
+.theme-chip { height: 30px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid; font-size: 15px; }
+.theme-chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.theme-name { font-size: 11px; letter-spacing: 1px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--display); }
