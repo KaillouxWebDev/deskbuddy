@@ -32,7 +32,12 @@ function sanitize(key, value) {
   if (!(key in DEFAULT_SETTINGS)) return undefined;
   if (typeof value !== typeof DEFAULT_SETTINGS[key]) return undefined;
   if (ENUMS[key] && !ENUMS[key].includes(value)) return undefined;
+  if (typeof value === 'number' && !Number.isFinite(value)) return undefined;
   if (key === 'brightness') return Math.min(100, Math.max(10, Math.round(value)));
+  // Coûts d'impression, réglables depuis l'écran : bornes larges mais réalistes.
+  if (key === 'filamentPriceKg') return value >= 0 && value <= 500 ? Math.round(value * 100) / 100 : undefined;
+  if (key === 'kwhPrice') return value >= 0 && value <= 5 ? Math.round(value * 10000) / 10000 : undefined;
+  if (key === 'printerWatts') return value >= 1 && value <= 3000 ? Math.round(value) : undefined;
   if ((key === 'sleepFrom' || key === 'sleepTo') && !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return undefined;
   return value;
 }

@@ -641,3 +641,17 @@ button.spool-top { background: transparent; border: 0; padding: 0; color: inheri
 /* ---------- États unifiés (chargement, indisponible, données anciennes) ---------- */
 .status-empty { display: flex; flex-direction: column; gap: 4px; }
 .stale { color: var(--sec); border: 1px dashed color-mix(in srgb, var(--sec) 60%, transparent); padding: 3px 8px; flex-shrink: 0; }
+
+/* ---------- Réglages chiffrés (veille, coûts) ---------- */
+.edit-chip { align-self: flex-start; min-height: 32px; margin-top: 2px; padding: 0 10px; background: var(--soft); border: 1px solid var(--line); border-radius: 16px; color: var(--prim); font-family: var(--display); font-size: 13px; cursor: pointer; }
+.switch-hit { min-width: 64px; min-height: 52px; display: flex; align-items: center; justify-content: flex-end; background: transparent; border: 0; padding: 0; cursor: pointer; }
+.costs { margin-top: auto; border-top: 1px solid var(--line); padding-top: 10px; }
+.cost-row { grid-template-columns: minmax(0, 1fr) auto; min-height: 44px; }
+.cost-vals { display: flex; gap: 14px; font-size: 13px; color: var(--dim); white-space: nowrap; }
+.cost-vals b { font-family: var(--display); font-size: 17px; font-weight: 400; color: var(--prim); }
+.np-fields { display: flex; flex-direction: column; gap: 10px; }
+.np-fields.is-compact { gap: 6px; }
+.np-fields.is-compact .np-field { min-height: 50px; padding: 2px 12px; }
+.np-fields.is-compact .np-value { font-size: 22px; }
+.np-value .unit { font-size: 14px; color: var(--dim); }
+.kb-key:disabled { opacity: 0.25; cursor: default; }

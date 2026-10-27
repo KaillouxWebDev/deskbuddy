@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PRIMARIES, SECONDARIES } from '../lib/theme.js';
 import NumPad from '../components/NumPad.jsx';
+import FieldPad from '../components/FieldPad.jsx';
 import WifiModal from '../components/WifiModal.jsx';
 import { uptime } from '../lib/format.js';
 
@@ -23,7 +24,23 @@ function Swatches({ items, value, mode, onPick }) {
   );
 }
 
-function Toggle({ label, detail, on, onChange }) {
+function Toggle({ label, detail, on, onChange, onEdit }) {
+  // Avec un réglage associé (horaires...) : la pastille ouvre le réglage, l'interrupteur active/désactive.
+  if (onEdit) {
+    return (
+      <div className="toggle-row">
+        <span className="toggle-text">
+          <span>{label}</span>
+          <button type="button" className="edit-chip" onClick={onEdit}>
+            {detail} <span className="sec">MODIFIER</span>
+          </button>
+        </span>
+        <button type="button" className="switch-hit" aria-pressed={on} aria-label={label} onClick={() => onChange(!on)}>
+          <span className={`switch${on ? ' is-on' : ''}`} aria-hidden="true"><span /></span>
+        </button>
+      </div>
+    );
+  }
   return (
     <button type="button" className="toggle-row" aria-pressed={on} onClick={() => onChange(!on)}>
       <span className="toggle-text">
@@ -35,6 +52,7 @@ function Toggle({ label, detail, on, onChange }) {
   );
 }
 
+const eur = (v, d) => `${Number(v).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d })} €`;
 const pct = (used, total) => (used != null && total ? Math.round((used / total) * 100) : '--');
 
 export default function System({ state, settings, send, mode }) {
@@ -87,6 +105,18 @@ export default function System({ state, settings, send, mode }) {
             <span className="value pct">{settings.brightness}%</span>
           </div>
         </div>
+
+        <div className="setting costs">
+          <span className="label">COÛT DES IMPRESSIONS 3D</span>
+          <button type="button" className="place-row cost-row" onClick={() => setModal('costs')}>
+            <span className="cost-vals">
+              <span><b>{eur(settings.filamentPriceKg, 2)}</b> /kg</span>
+              <span><b>{eur(settings.kwhPrice, 4)}</b> /kWh</span>
+              <span><b>{settings.printerWatts}</b> W</span>
+            </span>
+            <span className="sec small">MODIFIER</span>
+          </button>
+        </div>
       </section>
 
       <section className="col" aria-label="État du Pi">
@@ -125,6 +155,7 @@ export default function System({ state, settings, send, mode }) {
             detail={`${settings.sleepFrom} → ${settings.sleepTo}`}
             on={settings.sleepEnabled}
             onChange={(v) => set({ sleepEnabled: v })}
+            onEdit={() => setModal('sleep')}
           />
           <Toggle label="Balayage radar" detail="à couper si le Pi rame" on={settings.sweep} onChange={(v) => set({ sweep: v })} />
         </div>
@@ -139,6 +170,39 @@ export default function System({ state, settings, send, mode }) {
           }}
           onOk={(pos) => {
             send('location:set', pos);
+            setModal(null);
+          }}
+        />
+      )}
+      {modal === 'sleep' && (
+        <FieldPad
+          title="VEILLE NOCTURNE"
+          subtitle="L'écran s'éteint à la première heure et se rallume à la seconde. Un toucher le réveille."
+          fields={[
+            { id: 'sleepFrom', label: 'EXTINCTION', value: settings.sleepFrom, kind: 'time' },
+            { id: 'sleepTo', label: 'RALLUMAGE', value: settings.sleepTo, kind: 'time' }
+          ]}
+          note="Format 24 h : tape 2300 pour 23:00."
+          onCancel={() => setModal(null)}
+          onOk={(v) => {
+            set(v);
+            setModal(null);
+          }}
+        />
+      )}
+      {modal === 'costs' && (
+        <FieldPad
+          title="COÛT DES IMPRESSIONS"
+          subtitle="Sert à l'estimation sous la jauge et au coût réel en fin d'impression."
+          fields={[
+            { id: 'filamentPriceKg', label: 'FILAMENT · € LE KILO', value: settings.filamentPriceKg, kind: 'decimal', min: 0, max: 500, decimals: 2, unit: '€/kg' },
+            { id: 'kwhPrice', label: 'ÉLECTRICITÉ · € LE kWh (TTC)', value: settings.kwhPrice, kind: 'decimal', min: 0, max: 5, decimals: 4, unit: '€/kWh' },
+            { id: 'printerWatts', label: 'CONSOMMATION MOYENNE DE L\'IMPRIMANTE', value: settings.printerWatts, kind: 'decimal', min: 1, max: 3000, decimals: 0, unit: 'W' }
+          ]}
+          note="A1 : environ 100 W en moyenne (plateau chauffé compris)."
+          onCancel={() => setModal(null)}
+          onOk={(v) => {
+            set(v);
             setModal(null);
           }}
         />
