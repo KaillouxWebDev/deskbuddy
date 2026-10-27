@@ -33,6 +33,35 @@ function PlaneIcon({ track, kind }) {
   );
 }
 
+const ICON = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
+
+function CloudIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M7 18 H17 A4 4 0 0 0 17.4 10.03 A5.5 5.5 0 0 0 6.6 9.2 A4.4 4.4 0 0 0 7 18 Z" />
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M13 2 L4.5 13.5 H11 L10 22 L19.5 9.5 H13 Z" />
+    </svg>
+  );
+}
+
+function AntennaIcon() {
+  return (
+    <svg {...ICON}>
+      <circle cx="12" cy="9" r="1.4" fill="currentColor" />
+      <path d="M12 10.5 V21 M8.5 21 H15.5" />
+      <path d="M8.8 5.8 A4.5 4.5 0 0 0 8.8 12.2 M15.2 5.8 A4.5 4.5 0 0 1 15.2 12.2" />
+      <path d="M5.9 3 A8.5 8.5 0 0 0 5.9 15 M18.1 3 A8.5 8.5 0 0 1 18.1 15" />
+    </svg>
+  );
+}
+
 function Field({ label, value, unit }) {
   return (
     <div className="field">
@@ -289,23 +318,23 @@ export default function Radar({ state, settings, send, now }) {
         <div className="zoom">
           <button type="button" className="square-btn" aria-label="Zoomer" onClick={() => zoom(-1)} disabled={range === RANGES[0]}>+</button>
           <button type="button" className="square-btn" aria-label="Dézoomer" onClick={() => zoom(1)} disabled={range === RANGES[RANGES.length - 1]}>−</button>
+        </div>
+        <div className="radar-foot">{list.length} avion{list.length > 1 ? 's' : ''}</div>
+        <div className="layer-toggles">
           <button
             type="button"
-            className={`square-btn wide${showFreq ? ' is-on' : ''}`}
+            className={`square-btn${showFreq ? ' is-on' : ''}`}
             aria-pressed={showFreq}
             aria-label="Fréquences des aéroports proches"
             onClick={() => setShowFreq((v) => !v)}
           >
-            FRÉQ
+            <AntennaIcon />
           </button>
-        </div>
-        <div className="radar-foot">{list.length} avion{list.length > 1 ? 's' : ''}</div>
-        <div className="layer-toggles">
-          <button type="button" className={`square-btn wide${settings.rain ? ' is-on' : ''}`} aria-pressed={settings.rain} onClick={() => send('settings:update', { rain: !settings.rain })}>
-            PLUIE
+          <button type="button" className={`square-btn${settings.rain ? ' is-on' : ''}`} aria-pressed={settings.rain} aria-label="Pluie" onClick={() => send('settings:update', { rain: !settings.rain })}>
+            <CloudIcon />
           </button>
-          <button type="button" className={`square-btn wide${settings.lightning ? ' is-on' : ''}`} aria-pressed={settings.lightning} onClick={() => send('settings:update', { lightning: !settings.lightning })}>
-            ORAGE
+          <button type="button" className={`square-btn${settings.lightning ? ' is-on' : ''}`} aria-pressed={settings.lightning} aria-label="Orages (éclairs)" onClick={() => send('settings:update', { lightning: !settings.lightning })}>
+            <BoltIcon />
           </button>
         </div>
       </section>
