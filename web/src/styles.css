@@ -410,7 +410,7 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 
 /* ---------- Veille ---------- */
 .sleep-overlay { position: absolute; inset: 0; z-index: 50; background: #000; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 20px; }
-.sleep-overlay span { font-size: 11px; color: #262626; }
+.sleep-overlay > span { font-size: 11px; color: #262626; }
 
 /* ---------- Animations ---------- */
 .blink { animation: blink 1s steps(2) infinite; }
@@ -815,3 +815,196 @@ html[data-theme='neon-2049'] .boot-title { font-weight: 700; color: var(--sec); 
 .theme-chip { height: 30px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid; font-size: 15px; }
 .theme-chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .theme-name { font-size: 11px; letter-spacing: 1px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--display); }
+
+/* =====================================================================
+ * THÈMES, 2e vague
+ * ===================================================================== */
+
+/* Voile d'écran commun : lignes de balayage (CRT) ou simple vignettage. */
+html[data-theme='nostromo'] body::after,
+html[data-theme='wopr'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, 0.5) 100%);
+}
+html[data-theme='grille'] body::after,
+html[data-theme='hev'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* Nostromo : titres en blocs, tout en minuscules, halo vert d'eau. */
+html[data-theme='nostromo'] body { text-shadow: 0 0 5px color-mix(in srgb, var(--prim) 45%, transparent); }
+html[data-theme='nostromo'] .caption,
+html[data-theme='nostromo'] .tab,
+html[data-theme='nostromo'] .boot-title { font-family: 'Major Mono Display', monospace; text-transform: lowercase; }
+html[data-theme='nostromo'] .label { text-transform: lowercase; }
+
+/* WOPR : machine à écrire bleutée. */
+html[data-theme='wopr'] body { text-shadow: 0 0 6px color-mix(in srgb, var(--sec) 50%, transparent); }
+html[data-theme='wopr'] .callsign { font-weight: 700; }
+html[data-theme='wopr'] .radar-ring { stroke: #1d4f99; }
+
+/* LCARS : onglets en pilules colorées, cadres en coude, tout en capitales étroites. */
+html[data-theme='lcars'] body { text-transform: uppercase; font-size: 15px; letter-spacing: 0.5px; }
+html[data-theme='lcars'] .tab { border-radius: 18px; margin: 6px 3px; padding: 0 12px; color: #000 !important; background: #ff9966; font-weight: 700; font-size: 16px; border-bottom: 0 !important; }
+html[data-theme='lcars'] .tab:nth-child(2) { background: #cc99cc; }
+html[data-theme='lcars'] .tab:nth-child(3) { background: #9999ff; }
+html[data-theme='lcars'] .tab:nth-child(4) { background: #ffcc66; }
+html[data-theme='lcars'] .tab:nth-child(5) { background: #cc6666; }
+html[data-theme='lcars'] .tab.is-active { background: #ffcc99 !important; }
+html[data-theme='lcars'] .tab .dot { background: #000; }
+html[data-theme='lcars'] .card { border: 0; border-left: 14px solid #cc99cc; border-top: 8px solid #cc99cc; border-radius: 26px 0 0 0; background: #000; }
+html[data-theme='lcars'] .card:nth-of-type(2n) { border-color: #9999ff; }
+html[data-theme='lcars'] .card:nth-of-type(3n) { border-color: #ffcc66; }
+html[data-theme='lcars'] .value,
+html[data-theme='lcars'] .callsign { font-weight: 700; }
+html[data-theme='lcars'] .square-btn,
+html[data-theme='lcars'] .btn { border-radius: 16px; background: #9999ff; color: #000; border: 0; }
+html[data-theme='lcars'] .btn-prim { background: #ff9966; }
+html[data-theme='lcars'] .row,
+html[data-theme='lcars'] .spool-btn,
+html[data-theme='lcars'] .link-btn { border-radius: 16px; }
+html[data-theme='lcars'] .info-card,
+html[data-theme='lcars'] .alert-card { border-radius: 26px 0 0 0; border-width: 0 0 0 14px; }
+
+/* Grille : cadres et anneaux qui brillent. */
+html[data-theme='grille'] body { font-weight: 500; font-size: 15px; text-shadow: 0 0 6px color-mix(in srgb, var(--prim) 50%, transparent); }
+html[data-theme='grille'] .value,
+html[data-theme='grille'] .callsign { font-weight: 700; }
+html[data-theme='grille'] .card { border-color: #2fd8e6; box-shadow: 0 0 8px rgba(111, 246, 255, 0.35), inset 0 0 10px rgba(111, 246, 255, 0.08); }
+html[data-theme='grille'] .radar-ring,
+html[data-theme='grille'] .radar-axis { stroke: #2fd8e6; }
+
+/* Pluie verte : léger halo et lueur en haut de l'écran. */
+html[data-theme='pluie-verte'] body { text-shadow: 0 0 6px color-mix(in srgb, var(--prim) 50%, transparent); }
+html[data-theme='pluie-verte'] .content { background: linear-gradient(180deg, rgba(0, 255, 65, 0.04), transparent 30%); }
+
+/* Mission : sobre, capitales espacées. */
+html[data-theme='mission'] body { font-size: 14px; }
+html[data-theme='mission'] .callsign { font-weight: 700; letter-spacing: 3px; }
+html[data-theme='mission'] .value { font-weight: 600; font-family: var(--mono); }
+html[data-theme='mission'] .caption { letter-spacing: 3px; }
+
+/* Cockpit (mecha) : coins coupés, repères rouges, titres jaunes. */
+html[data-theme='cockpit'] body { font-weight: 500; }
+html[data-theme='cockpit'] .callsign,
+html[data-theme='cockpit'] .value { font-weight: 700; }
+html[data-theme='cockpit'] .card {
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  border-color: #2f7bff;
+  background: linear-gradient(135deg, rgba(47, 123, 255, 0.1), transparent 45%), var(--panel);
+}
+html[data-theme='cockpit'] .caption { color: var(--sec); letter-spacing: 2px; }
+html[data-theme='cockpit'] .caption::before { content: ''; display: inline-block; width: 14px; height: 8px; margin-right: 6px; background: #ff3b3b; }
+html[data-theme='cockpit'] .tab.is-active { border-bottom-color: #ff3b3b; }
+html[data-theme='cockpit'] .radar-ring-outer { stroke: #2f7bff; }
+
+/* HEV : orange de combinaison. */
+html[data-theme='hev'] body { font-weight: 500; text-shadow: 0 0 5px color-mix(in srgb, var(--prim) 45%, transparent); }
+html[data-theme='hev'] .value,
+html[data-theme='hev'] .callsign { font-weight: 700; }
+html[data-theme='hev'] .card { background: linear-gradient(180deg, rgba(255, 155, 26, 0.06), transparent 40%), var(--panel); }
+
+/* Aperture : blanc clinique, légendes bleues, balayage bleu. */
+html[data-theme='aperture'] body { font-weight: 600; }
+html[data-theme='aperture'] .caption { color: #00a2ff; letter-spacing: 2px; }
+html[data-theme='aperture'] .card { border: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+html[data-theme='aperture'] .sweep { background: conic-gradient(from 0deg, transparent 0deg 300deg, rgba(0, 162, 255, 0.25) 358deg, rgba(0, 162, 255, 0.5) 360deg); }
+
+/* Automata : sépia, ombres portées nettes, onglet actif plein. */
+html[data-theme='automata'] body { font-weight: 500; }
+html[data-theme='automata'] .callsign { letter-spacing: 4px; font-weight: 500; }
+html[data-theme='automata'] .caption,
+html[data-theme='automata'] .label { letter-spacing: 3px; }
+html[data-theme='automata'] .card { box-shadow: 3px 3px 0 rgba(74, 67, 52, 0.18); }
+html[data-theme='automata'] .tab.is-active { background: var(--prim); color: var(--panel); }
+html[data-theme='automata'] .radar-disc { fill: var(--panel); }
+
+/* DMG : police pixel pour les onglets, titres et légendes ; VT323 (plus lisible) partout ailleurs. */
+html[data-theme='dmg'] body { font-size: 17px; }
+html[data-theme='dmg'] .tab,
+html[data-theme='dmg'] .callsign,
+html[data-theme='dmg'] .caption,
+html[data-theme='dmg'] .label,
+html[data-theme='dmg'] .boot-title { font-family: 'Press Start 2P', monospace; }
+html[data-theme='dmg'] .tab { font-size: 10px; }
+html[data-theme='dmg'] .callsign { font-size: 20px; }
+html[data-theme='dmg'] .caption,
+html[data-theme='dmg'] .label { font-size: 8px; line-height: 1.7; }
+html[data-theme='dmg'] .value { font-size: 30px; }
+html[data-theme='dmg'] .small { font-size: 15px; }
+html[data-theme='dmg'] .card { border: 3px solid var(--prim); }
+html[data-theme='dmg'] .radar-disc { fill: var(--panel); }
+
+/* Neo Tokyo : gros titres à empattements, cadres orange, valeurs vertes. */
+html[data-theme='neo-tokyo'] .callsign { font-size: 46px; letter-spacing: -1px; }
+html[data-theme='neo-tokyo'] .caption { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: 3px; color: var(--prim); }
+html[data-theme='neo-tokyo'] .card { border: 2px solid var(--prim); }
+html[data-theme='neo-tokyo'] .value { color: var(--sec); }
+
+/* Contrôle aérien : avions blancs, étiquettes jaunes, aéroports bleus. */
+html[data-theme='controle-aerien'] .plane { color: var(--prim); }
+html[data-theme='controle-aerien'] .plane-label { color: var(--sec); }
+html[data-theme='controle-aerien'] .plane.is-sel { color: var(--sec); }
+html[data-theme='controle-aerien'] .radar-disc { fill: #101316; }
+html[data-theme='controle-aerien'] .radar-ring { stroke: #2e353c; }
+html[data-theme='controle-aerien'] .radar-airport rect { fill: none; stroke: #5fa8ff; }
+html[data-theme='controle-aerien'] .callsign { color: var(--sec); font-weight: 600; }
+
+/* Apollo : consoles grises en relief, chiffres verts lumineux, boutons beiges. */
+html[data-theme='apollo'] .card { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -2px 0 rgba(0, 0, 0, 0.35); }
+html[data-theme='apollo'] .label,
+html[data-theme='apollo'] .caption,
+html[data-theme='apollo'] .tab { color: var(--sec); letter-spacing: 2px; }
+html[data-theme='apollo'] .value { color: var(--prim); text-shadow: 0 0 6px color-mix(in srgb, var(--prim) 50%, transparent); }
+html[data-theme='apollo'] .btn,
+html[data-theme='apollo'] .square-btn { background: #d8ccb0; color: #2c2f32; border-color: #b5a98d; }
+
+/* ---------- Écrans de démarrage spéciaux ---------- */
+/* Pluie de caractères (Pluie verte) : colonnes qui tombent derrière le texte. */
+.boot-rain { position: absolute; inset: 0; overflow: hidden; display: flex; justify-content: space-between; opacity: 0.55; pointer-events: none; }
+.boot-rain span { writing-mode: vertical-rl; text-orientation: upright; font-family: var(--mono); font-size: 15px; color: var(--prim); animation: rain linear infinite; white-space: nowrap; }
+@keyframes rain { from { transform: translateY(-100%); } to { transform: translateY(110vh); } }
+.boot-inner { position: relative; }
+html[data-theme='pluie-verte'] .boot-inner { background: rgba(0, 0, 0, 0.75); padding: 18px 22px; }
+/* Logo qui descend (DMG). */
+.boot.is-drop .boot-title { animation: drop 1.2s ease-out both; font-size: 26px; }
+.boot.is-drop .boot-inner { align-items: center; text-align: center; }
+.boot.is-drop .boot-line { font-size: 12px; animation: blink 1s steps(2) infinite 1.4s; }
+.boot.is-drop .boot-caret { display: none; }
+@keyframes drop { from { transform: translateY(-160px); } }
+html[data-theme='lcars'] .boot-title { background: #ff9966; color: #000; padding: 4px 18px; border-radius: 18px; align-self: flex-start; }
+html[data-theme='cockpit'] .boot-title,
+html[data-theme='neo-tokyo'] .boot-title { color: var(--sec); }
+html[data-theme='controle-aerien'] .boot-title,
+html[data-theme='apollo'] .boot-title { color: var(--sec); }
+
+/* ---------- Grille de thèmes groupée ---------- */
+.theme-family { font-size: 10px; letter-spacing: 1.5px; color: var(--dim); margin-top: 4px; }
+.night-grid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.night-grid .theme-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.options .toggle-row > .edit-chip { margin-top: 0; flex-shrink: 0; }
+
+/* ---------- Écran de veille (horloge) ---------- */
+.sleep-overlay.is-saver { background: var(--bg); align-items: center; padding: 0; }
+.saver { display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 2s ease; }
+.saver-time { font-family: var(--display); font-size: 150px; line-height: 1; color: var(--prim); font-variant-numeric: tabular-nums; }
+.saver-colon { display: inline-block; margin: 0 6px; animation: saver-pulse 2s ease-in-out infinite; }
+@keyframes saver-pulse { 50% { opacity: 0.3; } }
+.saver-date { margin-top: 10px; font-family: var(--display); font-size: 22px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+.saver-msg { margin-top: 14px; font-family: var(--display); font-size: 18px; color: var(--sec); letter-spacing: 1px; }
+html[data-theme='dmg'] .saver-time,
+html[data-theme='dmg'] .saver-msg { font-family: 'Press Start 2P', monospace; }
+html[data-theme='dmg'] .saver-time { font-size: 80px; }
+html[data-theme='lcars'] .saver-msg { background: #ff9966; color: #000; padding: 4px 16px; border-radius: 16px; }
+html[data-theme='modern'] .saver-time { font-weight: 800; }

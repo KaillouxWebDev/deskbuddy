@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { PASTELS, PRIMARIES, SECONDARIES, THEMES, themeOf } from '../lib/theme.js';
+import { FAMILIES, PASTELS, PRIMARIES, SECONDARIES, THEMES, themeOf } from '../lib/theme.js';
 import NumPad from '../components/NumPad.jsx';
 import FieldPad from '../components/FieldPad.jsx';
 import WifiModal from '../components/WifiModal.jsx';
+import { CloseIcon } from '../components/Toasts.jsx';
 import { uptime } from '../lib/format.js';
 
 function Swatches({ items, value, mode, onPick }) {
@@ -26,15 +27,29 @@ function Swatches({ items, value, mode, onPick }) {
 
 /** Vignette d'un thème : sa palette sombre et sa police, pour juger d'un coup d'œil. */
 function ThemeTile({ theme, settings, on, onPick }) {
-  const v = theme.palette('dark', settings);
+  const v = theme.palette(theme.only || 'dark', settings);
   return (
     <button type="button" className={`theme-tile${on ? ' is-on' : ''}`} aria-pressed={on} onClick={onPick}>
-      <span className="theme-chip" style={{ background: v.bg, color: v.prim, borderColor: v.line, fontFamily: theme.fonts.display }}>
+      <span className="theme-chip" style={{ background: v.bg, color: v.prim, borderColor: v.line, fontFamily: theme.tileFont || theme.fonts.display }}>
         Aa <i style={{ background: v.prim }} /> <i style={{ background: v.sec }} />
       </span>
       <span className="theme-name">{theme.name.toUpperCase()}</span>
     </button>
   );
+}
+
+/** Tous les thèmes, regroupés par famille. */
+function ThemeGrid({ settings, value, onPick }) {
+  return FAMILIES.map(([fam, title]) => (
+    <React.Fragment key={fam}>
+      <span className="theme-family">{title}</span>
+      <div className="theme-grid">
+        {THEMES.filter((t) => t.family === fam).map((t) => (
+          <ThemeTile key={t.id} theme={t} settings={settings} on={t.id === value} onPick={() => onPick(t.id)} />
+        ))}
+      </div>
+    </React.Fragment>
+  ));
 }
 
 function Toggle({ label, detail, on, onChange, onEdit }) {
@@ -73,7 +88,9 @@ export default function System({ state, settings, send, mode }) {
   const sys = state.system || {};
   const screen = state.screen || {};
   const meta = state.meta || {};
-  const theme = themeOf(settings.themeId);
+  const theme = themeOf(settings.themeId); // thème choisi (de jour), même si le thème de nuit est affiché
+  const nightTheme = settings.nightThemeId ? themeOf(settings.nightThemeId) : null;
+  const saverTheme = settings.screensaverThemeId ? themeOf(settings.screensaverThemeId) : null;
   // Couleurs personnalisables : seulement pour Base (néons) et Modern (pastels).
   const find = (list, id) => list.find((c) => c.id === id) || list[0];
   const colors =
@@ -84,7 +101,13 @@ export default function System({ state, settings, send, mode }) {
         : null;
   const home = state.home;
   const wifi = state.wifi || {};
-  const [modal, setModal] = useState(null); // 'position' | 'wifi'
+  const [modal, setModal] = useState(null); // 'position' | 'wifi' | 'sleep' | 'costs' | 'nightTheme' | 'saverTheme'
+  const picker =
+    modal === 'nightTheme'
+      ? { key: 'nightThemeId', title: 'THÈME DE NUIT', none: 'AUCUN', help: `Affiché de ${settings.sleepFrom} à ${settings.sleepTo} quand tu réveilles l'écran. Le reste du temps : ${themeOf(settings.themeId).name}.` }
+      : modal === 'saverTheme'
+        ? { key: 'screensaverThemeId', title: 'ÉCRAN DE VEILLE', none: 'THÈME ACTUEL', help: "Thème de l'horloge affichée quand l'écran est en veille. « Thème actuel » reprend celui qui est affiché à ce moment-là." }
+        : null;
 
   return (
     <div className="split">
@@ -93,11 +116,7 @@ export default function System({ state, settings, send, mode }) {
 
         <div className="setting">
           <span className="label">THÈME · {theme.name.toUpperCase()}</span>
-          <div className="theme-grid">
-            {THEMES.map((t) => (
-              <ThemeTile key={t.id} theme={t} settings={settings} on={t.id === theme.id} onPick={() => set({ themeId: t.id })} />
-            ))}
-          </div>
+          <ThemeGrid settings={settings} value={settings.themeId} onPick={(id) => set({ themeId: id })} />
         </div>
 
         {theme.light ? (
@@ -116,7 +135,7 @@ export default function System({ state, settings, send, mode }) {
             </div>
           </div>
         ) : (
-          <span className="small dim">Ce thème est toujours sombre.</span>
+          <span className="small dim">Ce thème est toujours {theme.only === 'light' ? 'clair' : 'sombre'}.</span>
         )}
 
         {colors && (
@@ -193,6 +212,22 @@ export default function System({ state, settings, send, mode }) {
             onChange={(v) => set({ sleepEnabled: v })}
             onEdit={() => setModal('sleep')}
           />
+          <div className="toggle-row">
+            <span className="toggle-text">
+              <span>Thème de nuit</span>
+              <span className="small dim">pendant {settings.sleepFrom} → {settings.sleepTo}, si tu réveilles l'écran</span>
+            </span>
+            <button type="button" className="edit-chip" onClick={() => setModal('nightTheme')}>
+              {nightTheme ? nightTheme.name : 'Aucun'} <span className="sec">CHOISIR</span>
+            </button>
+          </div>
+          <Toggle
+            label="Écran de veille"
+            detail={`Horloge · ${saverTheme ? saverTheme.name : 'thème actuel'}`}
+            on={settings.screensaver}
+            onChange={(v) => set({ screensaver: v })}
+            onEdit={() => setModal('saverTheme')}
+          />
           <Toggle label="Balayage radar" detail="à couper si le Pi rame" on={settings.sweep} onChange={(v) => set({ sweep: v })} />
         </div>
       </section>
@@ -242,6 +277,29 @@ export default function System({ state, settings, send, mode }) {
             setModal(null);
           }}
         />
+      )}
+      {picker && (
+        <div className="modal-backdrop" onClick={() => setModal(null)}>
+          <div className="info-card stock-card" role="dialog" aria-labelledby="nt-title" onClick={(e) => e.stopPropagation()}>
+            <div className="stock-head">
+              <div>
+                <h1 id="nt-title" className="callsign">{picker.title}</h1>
+                <div className="small soft">{picker.help}</div>
+              </div>
+              <div className="stock-actions">
+                <button type="button" className={`btn${!settings[picker.key] ? ' btn-prim' : ''}`} onClick={() => { set({ [picker.key]: '' }); setModal(null); }}>
+                  {picker.none}
+                </button>
+                <button type="button" className="square-btn" aria-label="Fermer" onClick={() => setModal(null)}>
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="settings-scroll night-grid">
+              <ThemeGrid settings={settings} value={settings[picker.key]} onPick={(id) => { set({ [picker.key]: id }); setModal(null); }} />
+            </div>
+          </div>
+        </div>
       )}
       {modal === 'wifi' && <WifiModal wifi={wifi} send={send} onClose={() => setModal(null)} />}
     </div>

@@ -8,6 +8,27 @@ const STEP_MS = 420;
 const HOLD_MS = 900;
 const FADE_MS = 400;
 
+// Pluie de caractères : quelques colonnes générées une fois (animation CSS, rien à recalculer).
+const GLYPHS = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄ0123456789ABCDEFZ';
+function Rain() {
+  const [cols] = useState(() =>
+    Array.from({ length: 26 }, () => ({
+      text: Array.from({ length: 18 }, () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)]).join(''),
+      dur: 1.6 + Math.random() * 2.2,
+      delay: -Math.random() * 3
+    }))
+  );
+  return (
+    <div className="boot-rain" aria-hidden="true">
+      {cols.map((c, i) => (
+        <span key={i} style={{ animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}>
+          {c.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function BootScreen({ theme, onDone }) {
   const lines = theme.boot || [];
   const [shown, setShown] = useState(0);
@@ -28,7 +49,8 @@ export default function BootScreen({ theme, onDone }) {
 
   const [title, ...rest] = lines;
   return (
-    <div className={`boot${leaving ? ' is-leaving' : ''}`} onClick={skip} role="status" aria-label={`Démarrage du thème ${theme.name}`}>
+    <div className={`boot${leaving ? ' is-leaving' : ''}${theme.bootStyle === 'drop' ? ' is-drop' : ''}`} onClick={skip} role="status" aria-label={`Démarrage du thème ${theme.name}`}>
+      {theme.bootStyle === 'rain' && <Rain />}
       <div className="boot-inner">
         {shown > 0 && <div className="boot-title">{title}</div>}
         {rest.slice(0, Math.max(0, shown - 1)).map((l, i) => (

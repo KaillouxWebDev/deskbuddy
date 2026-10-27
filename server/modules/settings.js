@@ -4,6 +4,9 @@ import path from 'node:path';
 
 export const DEFAULT_SETTINGS = {
   themeId: 'base', // voir web/src/lib/theme.js
+  nightThemeId: '', // thème pendant les heures de veille nocturne ('' = le même que le jour)
+  screensaver: false, // écran de veille : horloge au lieu d'un écran noir
+  screensaverThemeId: '', // thème de l'écran de veille ('' = le thème affiché)
   theme: 'dark', // mode : dark | light | auto
   primary: 'vert',
   secondary: 'ambre',
@@ -25,7 +28,6 @@ export const DEFAULT_SETTINGS = {
 
 const PASTELS = ['menthe', 'lavande', 'peche', 'ciel', 'rose'];
 const ENUMS = {
-  themeId: ['base', 'modern', 'abri', 'abri-ambre', 'macrodata', 'fsociety', 'nuit-rouge', 'neon-2049'],
   theme: ['dark', 'light', 'auto'],
   modernPrimary: PASTELS,
   modernSecondary: PASTELS,
@@ -40,6 +42,9 @@ function sanitize(key, value) {
   if (typeof value !== typeof DEFAULT_SETTINGS[key]) return undefined;
   if (ENUMS[key] && !ENUMS[key].includes(value)) return undefined;
   if (typeof value === 'number' && !Number.isFinite(value)) return undefined;
+  // Identifiant de thème : la liste fait foi côté écran (web/src/lib/theme.js) ; ici on vérifie juste sa forme.
+  if (key === 'themeId' && !/^[a-z0-9-]{2,24}$/.test(value)) return undefined;
+  if ((key === 'nightThemeId' || key === 'screensaverThemeId') && value !== '' && !/^[a-z0-9-]{2,24}$/.test(value)) return undefined;
   if (key === 'brightness') return Math.min(100, Math.max(10, Math.round(value)));
   // Coûts d'impression, réglables depuis l'écran : bornes larges mais réalistes.
   if (key === 'filamentPriceKg') return value >= 0 && value <= 500 ? Math.round(value * 100) / 100 : undefined;

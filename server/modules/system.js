@@ -67,13 +67,18 @@ export function startSystem(store, { dataDir }) {
     })
     .catch((e) => console.log(`[screen] ${e.message} : la veille sera simulée à l'écran`));
 
+  // Écran de veille activé : on garde le rétroéclairage, baissé, pour afficher l'horloge.
+  const SAVER_PCT = 25;
   const sleep = (reason) => {
-    setScreen(false);
-    store.update('screen', { asleep: true, reason });
+    const s = store.get('settings');
+    if (s.screensaver) {
+      if (bl) host('backlight.set', { pct: Math.min(s.brightness, SAVER_PCT) }).catch((e) => console.error('[screen]', e.message));
+    } else setScreen(false);
+    store.update('screen', { asleep: true, reason, saver: Boolean(s.screensaver) });
   };
   const wake = () => {
     setScreen(true);
-    store.update('screen', { asleep: false, reason: null });
+    store.update('screen', { asleep: false, reason: null, saver: false });
   };
 
   store.register('screen:sleep', () => sleep('manual'));

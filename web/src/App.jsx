@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDeskbuddy, useNow } from './lib/useDeskbuddy.js';
-import { DEFAULT_SETTINGS, applyTheme, resolveMode, themeOf, themeVars } from './lib/theme.js';
+import { DEFAULT_SETTINGS, activeThemeId, applyTheme, resolveMode, themeOf, themeVars } from './lib/theme.js';
 import BootScreen from './components/BootScreen.jsx';
 import Header from './components/Header.jsx';
 import Toasts from './components/Toasts.jsx';
@@ -50,13 +50,18 @@ export default function App() {
   const now = useNow(1000);
   const date = new Date(now);
   const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...state.settings }), [state.settings]);
-  const mode = resolveMode(settings, date);
-  const theme = themeOf(settings.themeId);
+  // Thème de nuit pendant les heures de veille nocturne, thème choisi le reste du temps.
+  const asleep = Boolean(state.screen?.asleep);
+  const saver = asleep && Boolean(state.screen?.saver);
+  // Écran de veille avec son propre thème ; sinon thème de nuit pendant la veille nocturne, sinon le thème choisi.
+  const themeId = saver && settings.screensaverThemeId ? settings.screensaverThemeId : activeThemeId(settings, date);
+  const mode = resolveMode(settings, date, themeId);
+  const theme = themeOf(themeId);
 
   useEffect(() => {
-    applyTheme(themeVars(settings, mode), theme);
+    applyTheme(themeVars(settings, mode, themeId), theme);
     document.documentElement.dataset.mode = mode;
-  }, [settings.themeId, settings.primary, settings.secondary, settings.modernPrimary, settings.modernSecondary, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [themeId, settings.primary, settings.secondary, settings.modernPrimary, settings.modernSecondary, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Écran de démarrage : au lancement (donc aussi après une mise à jour) et à chaque changement de thème.
   const loadedThemeId = state.settings ? settings.themeId : null;
@@ -118,7 +123,7 @@ export default function App() {
       <Toasts toasts={toasts} onClose={dismiss} />
       {boot && <BootScreen key={boot} theme={themeOf(boot)} onDone={() => setBoot(null)} />}
       {showAlert && tab === 'printer' && <AlertModal alert={alert} printer={state.printer} send={send} />}
-      <SleepOverlay asleep={Boolean(state.screen?.asleep)} onWake={() => send('screen:wake')} />
+      <SleepOverlay asleep={asleep} saver={saver ? theme : null} date={date} onWake={() => send('screen:wake')} />
     </div>
   );
 }
