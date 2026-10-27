@@ -413,3 +413,31 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .print-meta .ellipsis { max-width: 100%; }
 .header-actions { display: flex; align-items: center; }
 .icon-btn.is-on > span { background: var(--prim); color: var(--bg); border-color: var(--prim); }
+
+/* ---------- Calques météo sur le radar ---------- */
+.wx-layer { position: absolute; left: 2px; top: 2px; width: 400px; height: 400px; border-radius: 50%; overflow: hidden; pointer-events: none; }
+.wx-rain { position: absolute; opacity: 0.55; }
+.wx-lightning { position: absolute; inset: 0; width: 400px; height: 400px; filter: saturate(1.6) brightness(1.2); }
+.layer-toggles { position: absolute; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 6px; }
+.layer-toggles .square-btn { height: 40px; width: 68px; font-size: 14px; }
+.radar-foot { top: 6px; bottom: auto; }
+
+/* ---------- Satellites ---------- */
+.sky-label { fill: var(--dim); font-size: 10px; font-family: var(--mono); }
+.sky-track { fill: none; stroke: var(--sec); stroke-width: 2; stroke-dasharray: 5 5; }
+.sky-aos { fill: var(--sec); }
+.sky-los { fill: none; stroke: var(--sec); stroke-width: 2; }
+.sky-sat { fill: var(--prim); cursor: pointer; }
+.sky-sat text { font-family: var(--display); font-size: 12px; }
+.sky-sat.is-sel { fill: var(--sec); }
+.sky-hit { fill: transparent; }
+.sat-card { gap: 6px; }
+.sat-countdown { font-family: var(--display); font-size: 26px; color: var(--prim); }
+.sat-countdown.is-live { color: var(--sec); }
+.sat-freqs { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.sat-freq { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline; }
+.sat-freq .dim { grid-column: 1 / -1; }
+.sat-freq-val { font-family: var(--display); font-size: 20px; }
+.row.is-low { opacity: 0.55; }
+.mode-chip { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 8px; font-size: 9px; letter-spacing: 1px; color: var(--dim); }
+.mode-chip.is-locked { border-color: var(--sec); color: var(--sec); }

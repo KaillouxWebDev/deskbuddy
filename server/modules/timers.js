@@ -27,7 +27,7 @@ export function startTimers(store) {
       if (t.done || t.endAt > now) return t;
       changed = true;
       store.event({ kind: 'timer:done', id: t.id });
-      store.toast('warn', 'MINUTEUR TERMINÉ', t.label);
+      store.toast('warn', 'MINUTEUR TERMINÉ', t.label, { sticky: true });
       return { ...t, done: true };
     });
     if (changed) store.set('timers', list);

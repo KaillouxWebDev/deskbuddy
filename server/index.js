@@ -10,6 +10,7 @@ import { startAircraft } from './modules/aircraft.js';
 import { startPrinter } from './modules/printer.js';
 import { startTimers } from './modules/timers.js';
 import { startAirports } from './modules/airports.js';
+import { startSatellites } from './modules/satellites.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../dist');
@@ -29,8 +30,10 @@ store.set('meta', {
 startSettings(store, { dataDir: DATA_DIR });
 startSystem(store, { dataDir: DATA_DIR });
 const HOME = { lat: parseFloat(process.env.HOME_LAT), lon: parseFloat(process.env.HOME_LON) };
+if (Number.isFinite(HOME.lat) && Number.isFinite(HOME.lon)) store.set('home', HOME);
 startAircraft(store, { ...HOME, pollMs: Math.max(5, Number(process.env.AIRCRAFT_POLL_S || 8)) * 1000 });
 startAirports(store, { ...HOME, dataDir: DATA_DIR });
+startSatellites(store, { ...HOME, dataDir: DATA_DIR });
 startPrinter(store, {
   host: process.env.BAMBU_HOST,
   serial: process.env.BAMBU_SERIAL,

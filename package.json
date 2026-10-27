@@ -1,6 +1,6 @@
 {
   "name": "deskbuddy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Dashboard tactile de bureau pour Raspberry Pi + écran 7\" : radar avions, imprimante Bambu A1, horloge, système.",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "mqtt": "^5.10.1",
+    "satellite.js": "^7.1.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

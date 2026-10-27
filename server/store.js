@@ -26,8 +26,9 @@ export function createStore() {
     event(event) {
       bus.emit('event', { id: `${Date.now()}-${seq++}`, at: Date.now(), ...event });
     },
-    toast(level, title, text = '') {
-      store.event({ kind: 'toast', level, title, text });
+    /** sticky : la notif reste affichée jusqu'à ce qu'on la ferme (utile si l'écran était en veille). */
+    toast(level, title, text = '', { sticky = false } = {}) {
+      store.event({ kind: 'toast', level, title, text, sticky });
     },
     register(name, fn) {
       actions.set(name, fn);

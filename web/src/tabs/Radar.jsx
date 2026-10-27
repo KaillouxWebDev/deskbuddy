@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { dec1, deg, int, signed } from '../lib/format.js';
 
 const RANGES = [15, 30, 60, 100];
@@ -115,14 +115,105 @@ function FreqPanel({ airports, highlight }) {
   );
 }
 
-export default function Radar({ state, settings, send }) {
-  const [selectedId, setSelectedId] = useState(null);
+/* ---------- Calques météo : pluie (RainViewer) et éclairs (Meteosat MTG, EUMETSAT) ---------- */
+
+const EARTH_R = 6378137;
+const RAIN_ZOOM = 7; // zoom max de l'API gratuite RainViewer
+const toRad = (d) => (d * Math.PI) / 180;
+
+function worldPx(lat, lon, z) {
+  const n = 256 * 2 ** z;
+  const phi = toRad(lat);
+  return { x: ((lon + 180) / 360) * n, y: ((1 - Math.log(Math.tan(phi) + 1 / Math.cos(phi)) / Math.PI) / 2) * n };
+}
+
+function useRainFrame(enabled) {
+  const [frame, setFrame] = useState(null);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+        const json = await res.json();
+        const last = json.radar?.past?.at(-1);
+        if (alive && last) setFrame({ host: json.host, path: last.path, time: last.time * 1000 });
+      } catch {
+        /* on garde l'image précédente */
+      }
+    };
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [enabled]);
+  return frame;
+}
+
+function WeatherLayer({ home, range, rain, lightning, now }) {
+  const frame = useRainFrame(rain);
+  if (!home || (!rain && !lightning)) return null;
+  const halfKm = (range * 200) / 180; // le disque fait 200 px de rayon, l'anneau extérieur 180 px
+
+  let tiles = [];
+  if (rain && frame) {
+    const h = worldPx(home.lat, home.lon, RAIN_ZOOM);
+    const s = ((156.543 * Math.cos(toRad(home.lat))) / 2 ** RAIN_ZOOM) * (200 / halfKm); // px écran par px de tuile
+    const span = 200 / s;
+    for (let tx = Math.floor((h.x - span) / 256); tx <= Math.floor((h.x + span) / 256); tx++) {
+      for (let ty = Math.floor((h.y - span) / 256); ty <= Math.floor((h.y + span) / 256); ty++) {
+        tiles.push({ key: `${tx}-${ty}`, left: 200 + (tx * 256 - h.x) * s, top: 200 + (ty * 256 - h.y) * s, size: 256 * s, src: `${frame.host}${frame.path}/256/${RAIN_ZOOM}/${tx}/${ty}/2/1_1.png` });
+      }
+    }
+  }
+
+  let lightningSrc = null;
+  if (lightning) {
+    const mx = EARTH_R * toRad(home.lon);
+    const my = EARTH_R * Math.log(Math.tan(Math.PI / 4 + toRad(home.lat) / 2));
+    const half = (halfKm * 1000) / Math.cos(toRad(home.lat));
+    const bbox = [mx - half, my - half, mx + half, my + half].map((v) => Math.round(v)).join(',');
+    const slot = Math.floor(now / 300_000); // nouvelle image toutes les 5 min
+    lightningSrc = `https://view.eumetsat.int/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=mtg_fd:li_afa&styles=&crs=EPSG:3857&bbox=${bbox}&width=400&height=400&format=image/png&transparent=true&_=${slot}`;
+  }
+
+  return (
+    <div className="wx-layer" aria-hidden="true">
+      {tiles.map((t) => (
+        <img key={t.key} className="wx-rain" src={t.src} alt="" style={{ left: t.left, top: t.top, width: t.size, height: t.size }} />
+      ))}
+      {lightningSrc && <img className="wx-lightning" src={lightningSrc} alt="" />}
+    </div>
+  );
+}
+
+export default function Radar({ state, settings, send, now }) {
+  const [lockedId, setLockedId] = useState(null);
   const [showFreq, setShowFreq] = useState(false);
+  const autoId = useRef(null);
   const aircraft = state.aircraft || { list: [] };
   const airports = state.airports || { list: [] };
   const range = RANGES.includes(settings.rangeKm) ? settings.rangeKm : 60;
   const list = (aircraft.list || []).filter((a) => a.dist <= range);
-  const sel = list.find((a) => a.id === selectedId) || list[0] || null;
+
+  /*
+   * Sélection : un appareil touché reste « fixé » tant qu'il est dans la zone du radar.
+   * Sinon, mode auto : l'appareil en vol le plus proche. On ne change d'appareil auto que si
+   * un autre est plus proche d'au moins 1 km, pour éviter que la fiche clignote entre deux avions.
+   */
+  const locked = lockedId ? list.find((a) => a.id === lockedId) : null;
+  useEffect(() => {
+    if (lockedId && !locked) setLockedId(null);
+  }, [lockedId, locked]);
+  const airborne = list.filter((a) => !a.onGround);
+  const nearest = airborne[0] || list[0] || null;
+  let auto = list.find((a) => a.id === autoId.current && !a.onGround) || null;
+  if (!auto || (nearest && nearest.dist < auto.dist - 1)) auto = nearest;
+  autoId.current = auto?.id ?? null;
+  const sel = locked || auto;
+  const isLocked = Boolean(locked);
   const q = range / 4;
   const ring = (n) => (Number.isInteger(q * n) ? q * n : dec1(q * n));
   const highlight = [sel?.route?.from?.icao, sel?.route?.to?.icao].filter(Boolean);
@@ -131,8 +222,9 @@ export default function Radar({ state, settings, send }) {
     const i = RANGES.indexOf(range);
     send('settings:update', { rangeKm: RANGES[Math.min(RANGES.length - 1, Math.max(0, i + dir))] });
   };
+  // Toucher l'appareil déjà fixé le libère (retour au mode auto).
   const pick = (id) => {
-    setSelectedId(id);
+    setLockedId((cur) => (cur === id ? null : id));
     setShowFreq(false);
   };
 
@@ -167,6 +259,7 @@ export default function Radar({ state, settings, send }) {
             })}
           <circle cx={C} cy={C} r="4" className="radar-home" />
         </svg>
+        <WeatherLayer home={state.home} range={range} rain={settings.rain} lightning={settings.lightning} now={now} />
         {settings.sweep && <div className="sweep" aria-hidden="true" />}
         {[1, 2, 3, 4].map((n) => (
           <span key={n} className="ring-label" style={{ top: C - 45 * n - 2 }}>
@@ -207,6 +300,14 @@ export default function Radar({ state, settings, send }) {
           </button>
         </div>
         <div className="radar-foot">{list.length} avion{list.length > 1 ? 's' : ''}</div>
+        <div className="layer-toggles">
+          <button type="button" className={`square-btn wide${settings.rain ? ' is-on' : ''}`} aria-pressed={settings.rain} onClick={() => send('settings:update', { rain: !settings.rain })}>
+            PLUIE
+          </button>
+          <button type="button" className={`square-btn wide${settings.lightning ? ' is-on' : ''}`} aria-pressed={settings.lightning} onClick={() => send('settings:update', { lightning: !settings.lightning })}>
+            ORAGE
+          </button>
+        </div>
       </section>
 
       {showFreq ? (
@@ -215,7 +316,12 @@ export default function Radar({ state, settings, send }) {
         <section className="col" aria-label="Données du vol sélectionné">
           <div className="card flight-card">
             <div className="card-head">
-              <span className="caption">DONNÉES VOL</span>
+              <span className="caption">
+                DONNÉES VOL{' '}
+                {sel && (
+                  <span className={`mode-chip${isLocked ? ' is-locked' : ''}`}>{isLocked ? 'FIXÉ' : 'AUTO · PLUS PROCHE'}</span>
+                )}
+              </span>
               {sel && <span className="sec small">{sel.reg || sel.squawk || ''}</span>}
             </div>
             {sel ? (

@@ -10,7 +10,9 @@ export const DEFAULT_SETTINGS = {
   sleepFrom: '23:00',
   sleepTo: '07:00',
   rangeKm: 60,
-  sweep: true
+  sweep: true,
+  rain: false,
+  lightning: false
 };
 
 const ENUMS = {

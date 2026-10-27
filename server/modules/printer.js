@@ -86,7 +86,7 @@ export function startPrinter(store, { host, serial, accessCode, mock }) {
     } else if (!alertKey && alert) {
       alert = null;
       log('Alerte résolue', 'success');
-      store.toast('success', 'ALERTE RÉSOLUE', 'L\'imprimante est repartie');
+      store.toast('success', 'ALERTE RÉSOLUE', 'L\'imprimante est repartie', { sticky: true });
     } else if (alert) {
       alert = { ...alert, paused: d.state === 'PAUSE' || d.state === 'FAILED' };
     }
@@ -94,7 +94,7 @@ export function startPrinter(store, { host, serial, accessCode, mock }) {
     if (prev && prev.state !== d.state) {
       if (d.state === 'FINISH') {
         log(`Impression terminée : ${d.file || 'sans nom'}`, 'success');
-        store.toast('success', 'IMPRESSION TERMINÉE', d.file || '');
+        store.toast('success', 'IMPRESSION TERMINÉE', d.file || '', { sticky: true });
       } else if (d.state === 'RUNNING' && !ACTIVE.includes(prev.state)) {
         log(`Début impression : ${d.file || 'sans nom'}`);
       } else if (d.state === 'FAILED') {

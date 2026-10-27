@@ -8,10 +8,12 @@ import SleepOverlay from './components/SleepOverlay.jsx';
 import Radar from './tabs/Radar.jsx';
 import Printer from './tabs/Printer.jsx';
 import Clock from './tabs/Clock.jsx';
+import Satellites from './tabs/Satellites.jsx';
 import System from './tabs/System.jsx';
 
 export const TABS = [
   { id: 'radar', label: 'RADAR' },
+  { id: 'sky', label: 'SATELLITES' },
   { id: 'printer', label: 'IMPRIMANTE' },
   { id: 'clock', label: 'HORLOGE' }
 ];
@@ -33,7 +35,7 @@ export default function App() {
     (e) => {
       if (e.kind === 'toast') {
         setToasts((t) => [...t.slice(-2), e]);
-        setTimeout(() => dismiss(e.id), 8_000);
+        if (!e.sticky) setTimeout(() => dismiss(e.id), 8_000);
       } else if (e.kind === 'printer:alert') {
         setTab('printer');
       }
@@ -86,6 +88,7 @@ export default function App() {
       />
       <main className="content">
         {tab === 'radar' && <Radar {...props} />}
+        {tab === 'sky' && <Satellites {...props} />}
         {tab === 'printer' && <Printer {...props} />}
         {tab === 'clock' && <Clock {...props} />}
         {tab === 'system' && <System {...props} mode={mode} />}
