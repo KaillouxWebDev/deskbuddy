@@ -1,0 +1,14 @@
+services:
+  deskbuddy:
+    image: ghcr.io/kaillouxwebdev/deskbuddy:latest
+    container_name: deskbuddy
+    restart: unless-stopped
+    # Réseau de l'hôte : accès direct à l'imprimante sur le LAN et à l'IP du Pi.
+    network_mode: host
+    # Nécessaire pour piloter le rétroéclairage (/sys/class/backlight) : veille et luminosité.
+    privileged: true
+    env_file: .env
+    environment:
+      TZ: Europe/Paris
+    volumes:
+      - ./data:/data
