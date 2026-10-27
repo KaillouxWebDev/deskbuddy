@@ -2,7 +2,7 @@
 
 Dashboard tactile de bureau pour Raspberry Pi 3B + écran officiel 7" (800x480), style radar phosphore.
 
-**Onglets** : Radar (avions autour de chez toi via [adsb.lol](https://adsb.lol), départ/arrivée via [adsbdb](https://www.adsbdb.com), fréquences des aéroports proches via [OurAirports](https://ourairports.com)), Imprimante (Bambu Lab A1 en lecture seule, alertes et notif de fin), Horloge (chrono et minuteurs), Système (thème clair/sombre/auto, couleurs, luminosité, stats du Pi).
+**Onglets** : Radar (avions autour de chez toi via [adsb.lol](https://adsb.lol), départ/arrivée via [adsbdb](https://www.adsbdb.com), fréquences des aéroports proches via [OurAirports](https://ourairports.com)), Imprimante (Bambu Lab A1 en lecture seule, alertes et notif de fin), Horloge (chrono et minuteurs). Réglages (roue crantée en haut à droite) : thème clair/sombre/auto, couleurs, luminosité, stats du Pi.
 
 Bouton lune dans la barre du haut : coupe l'écran, un toucher le rallume. Veille nocturne programmable.
 

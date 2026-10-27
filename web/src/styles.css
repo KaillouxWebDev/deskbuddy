@@ -406,3 +406,5 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 @keyframes pulse-danger { 50% { box-shadow: 0 0 32px color-mix(in srgb, var(--danger) 45%, transparent); } }
 .print-meta { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
 .print-meta .ellipsis { max-width: 100%; }
+.header-actions { display: flex; align-items: center; }
+.icon-btn.is-on > span { background: var(--prim); color: var(--bg); border-color: var(--prim); }

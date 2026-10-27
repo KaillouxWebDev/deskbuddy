@@ -13,12 +13,18 @@ import System from './tabs/System.jsx';
 export const TABS = [
   { id: 'radar', label: 'RADAR' },
   { id: 'printer', label: 'IMPRIMANTE' },
-  { id: 'clock', label: 'HORLOGE' },
-  { id: 'system', label: 'SYSTÈME' }
+  { id: 'clock', label: 'HORLOGE' }
 ];
 
 export default function App() {
-  const [tab, setTab] = useState('radar');
+  const [tab, setTabRaw] = useState('radar');
+  const lastTab = useRef('radar');
+  const setTab = useCallback((id) => {
+    if (id !== 'system') lastTab.current = id;
+    setTabRaw(id);
+  }, []);
+  // La roue crantée ouvre les réglages ; un second appui ramène à l'onglet précédent.
+  const toggleSettings = () => setTab(tab === 'system' ? lastTab.current : 'system');
   const [toasts, setToasts] = useState([]);
 
   const dismiss = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
@@ -32,7 +38,7 @@ export default function App() {
         setTab('printer');
       }
     },
-    [dismiss]
+    [dismiss, setTab]
   );
 
   const { state, connected, send } = useDeskbuddy(onEvent);
@@ -60,7 +66,7 @@ export default function App() {
   const alertKey = alert && !alert.acked ? alert.key : null;
   useEffect(() => {
     if (alertKey) setTab('printer');
-  }, [alertKey]);
+  }, [alertKey, setTab]);
   const showAlert = Boolean(alert && !alert.acked && now >= (alert.snoozeUntil || 0));
 
   const props = { state, settings, send, now };
@@ -75,6 +81,8 @@ export default function App() {
         connected={connected}
         printerAlert={Boolean(alert)}
         onSleep={() => send('screen:sleep')}
+        settingsOpen={tab === 'system'}
+        onSettings={toggleSettings}
       />
       <main className="content">
         {tab === 'radar' && <Radar {...props} />}

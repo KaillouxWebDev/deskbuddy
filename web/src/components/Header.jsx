@@ -9,7 +9,23 @@ export function MoonIcon() {
   );
 }
 
-export default function Header({ tabs, tab, setTab, date, connected, printerAlert, onSleep }) {
+export function GearIcon() {
+  const teeth = [0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
+    const r = (a * Math.PI) / 180;
+    return { x1: 12 + 6.4 * Math.sin(r), y1: 12 - 6.4 * Math.cos(r), x2: 12 + 9.6 * Math.sin(r), y2: 12 - 9.6 * Math.cos(r) };
+  });
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="6.4" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      {teeth.map((t, i) => (
+        <line key={i} {...t} stroke="currentColor" strokeWidth="2.8" />
+      ))}
+    </svg>
+  );
+}
+
+export default function Header({ tabs, tab, setTab, date, connected, printerAlert, onSleep, settingsOpen, onSettings }) {
   return (
     <header className="header">
       <nav className="tabs" aria-label="Onglets">
@@ -32,11 +48,24 @@ export default function Header({ tabs, tab, setTab, date, connected, printerAler
           {connected ? 'LIVE' : 'HORS LIGNE'}
         </span>
         <span className="header-time">{hhmm(date)}</span>
-        <button type="button" className="icon-btn" aria-label="Mettre l'écran en veille" onClick={onSleep}>
-          <span>
-            <MoonIcon />
-          </span>
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className={`icon-btn${settingsOpen ? ' is-on' : ''}`}
+            aria-label="Réglages"
+            aria-pressed={settingsOpen}
+            onClick={onSettings}
+          >
+            <span>
+              <GearIcon />
+            </span>
+          </button>
+          <button type="button" className="icon-btn" aria-label="Mettre l'écran en veille" onClick={onSleep}>
+            <span>
+              <MoonIcon />
+            </span>
+          </button>
+        </div>
       </div>
     </header>
   );
