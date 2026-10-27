@@ -36,7 +36,7 @@ startSystem(store, { dataDir: DATA_DIR });
 startWifi(store);
 
 // Modules qui dépendent de la position : relancés proprement à chaque changement de lieu.
-const POLL_MS = Math.max(5, Number(process.env.AIRCRAFT_POLL_S || 6)) * 1000;
+const POLL_MS = Math.max(4, Number(process.env.AIRCRAFT_POLL_S || 4)) * 1000;
 let geo = null;
 startLocation(store, {
   home: { lat: parseFloat(process.env.HOME_LAT), lon: parseFloat(process.env.HOME_LON) },

@@ -185,7 +185,7 @@ export default function Radar({ state, settings, send, now }) {
   const airports = state.airports || { list: [] };
   const range = RANGES.includes(settings.rangeKm) ? settings.rangeKm : 60;
   const list = (aircraft.list || []).filter((a) => a.dist <= range);
-  const period = aircraft.pollMs || 6000;
+  const period = aircraft.pollMs || 4000;
   const blips = usePhosphor(aircraft.list || [], period, settings.sweep).filter((b) => b.dist <= range);
 
   /*
