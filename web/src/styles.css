@@ -655,3 +655,15 @@ button.spool-top { background: transparent; border: 0; padding: 0; color: inheri
 .np-fields.is-compact .np-value { font-size: 22px; }
 .np-value .unit { font-size: 14px; color: var(--dim); }
 .kb-key:disabled { opacity: 0.25; cursor: default; }
+
+/* Réglages : colonnes qui défilent (comme les listes d'avions) plutôt que des éléments serrés. */
+.settings-scroll { overflow-y: auto; scrollbar-width: none; }
+.settings-scroll::-webkit-scrollbar { display: none; }
+.settings-scroll > .card { flex-shrink: 0; }
+.col-settings.settings-scroll > * { flex-shrink: 0; }
+.options { gap: 0; padding-bottom: 6px; }
+.options .toggle-row { padding: 10px 0; }
+.edit-chip { margin-top: 8px; }
+.costs { margin-top: 6px; padding-top: 14px; padding-bottom: 4px; gap: 10px; }
+.place-card { padding-top: 8px; padding-bottom: 8px; }
+.place-row { min-height: 48px; }

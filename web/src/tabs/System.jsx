@@ -68,7 +68,7 @@ export default function System({ state, settings, send, mode }) {
 
   return (
     <div className="split">
-      <section className="card col-settings" aria-label="Affichage">
+      <section className="card col-settings settings-scroll" aria-label="Affichage">
         <span className="caption">AFFICHAGE</span>
 
         <div className="setting">
@@ -119,7 +119,7 @@ export default function System({ state, settings, send, mode }) {
         </div>
       </section>
 
-      <section className="col" aria-label="État du Pi">
+      <section className="col settings-scroll" aria-label="État du Pi">
         <div className="card">
           <div className="card-head">
             <span className="caption">{(sys.hostname || 'deskbuddy').toUpperCase()}</span>
@@ -148,7 +148,7 @@ export default function System({ state, settings, send, mode }) {
             <span className="sec small">CHANGER</span>
           </button>
         </div>
-        <div className="card grow options">
+        <div className="card options">
           <span className="caption">OPTIONS</span>
           <Toggle
             label="Veille nocturne"
