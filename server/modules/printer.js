@@ -95,7 +95,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
   /** Ce que le slicer a calculé pour l'impression en cours (poids par filament, durée). */
   const loadInfo = async (j, d) => {
     const info = mock
-      ? { file: d.file, predictionS: 5400, filaments: [{ id: 1, type: 'PLA', color: '#2F8F4E', usedG: 42.5, usedM: 14.2 }] }
+      ? { file: d.file, predictionS: 5400, filaments: [{ id: 1, type: 'PLA', color: '#F7D959', usedG: 42.5, usedM: 14.2 }] } // couleur volontairement ≠ bobine chargée
       : await fetchPrintInfo({ host, accessCode, subtask: d.file, gcodeFile: d.gcodeFile, dataDir });
     if (job !== j) return; // impression déjà terminée entre-temps
     if (!info) {
@@ -108,17 +108,43 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     const grams = info.filaments.reduce((sum, f) => sum + f.usedG, 0);
     const elec = ((info.predictionS || 0) / 3600) * (p.watts / 1000) * p.kwh;
     j.estimate = { grams: Math.round(grams), cost: grams * p.perG + elec };
-    // Assez de filament sur les bobines chargées ?
-    for (const f of info.filaments) {
-      const s = spools.match(f);
+    checkStock(j);
+    store.update('printer', { job: publicJob(j) });
+  };
+
+  /*
+   * Quelle bobine sert vraiment ? La couleur du fichier ne suffit pas : Bambu Studio laisse imprimer un
+   * fichier préparé en jaune avec la bobine blanche. Pour un fichier mono-filament, on se fie donc à
+   * l'emplacement de l'AMS que l'imprimante utilise (tray_now) ; la couleur ne sert qu'en multicolore.
+   */
+  const pickFor = (j) => (f) => {
+    if (j.info?.filaments.length === 1 && j.slots.size === 1) {
+      const s = spools.bySlot([...j.slots][0]);
+      if (s) return s;
+    }
+    return spools.match(f);
+  };
+
+  /** Assez de filament sur les bobines utilisées ? Vérifié dès qu'on connaît le fichier ET la bobine. */
+  const checkStock = (j) => {
+    if (j.checked || !j.info) return;
+    const single = j.info.filaments.length === 1;
+    if (single && !j.slots.size) return; // on attend que l'imprimante charge le filament
+    j.checked = true;
+    const pick = pickFor(j);
+    for (const f of j.info.filaments) {
+      const s = pick(f);
       if (s && !s.needsLevel && s.grams < f.usedG) {
         store.toast('warn', 'FILAMENT INSUFFISANT', `${s.material} ${s.colorName.toLowerCase()} : ~${Math.round(s.grams)} g restants, ${Math.round(f.usedG)} g nécessaires`, { sticky: true });
       }
     }
-    store.update('printer', { job: publicJob(j) });
   };
 
-  const publicJob = (j) => (j ? { start: j.start, estimate: j.estimate || null, infoError: Boolean(j.infoError) } : null);
+  const publicJob = (j) => {
+    if (!j) return null;
+    const spool = j.info?.filaments.length === 1 ? pickFor(j)(j.info.filaments[0]) : null;
+    return { start: j.start, estimate: j.estimate || null, infoError: Boolean(j.infoError), spool: spool ? spool.colorName : null };
+  };
 
   /** Fin d'impression : décompte du stock et coût réel. */
   const finishJob = (fraction) => {
@@ -132,7 +158,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
       log('Consommation inconnue : fichier d\'impression illisible', 'info');
       return null;
     }
-    const used = spools.consume(j.info.filaments, fraction);
+    const used = spools.consume(j.info.filaments, fraction, pickFor(j));
     const grams = used.reduce((sum, u) => sum + u.grams, 0);
     const cost = grams * p.perG + elec;
     log(`Consommé ${Math.round(grams)} g (${used.map((u) => u.spool).join(', ')}) · coût ~${euros(cost)}`, 'info');
@@ -177,8 +203,14 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
 
     // Début de suivi : à chaque nouvelle impression (ou au redémarrage du dashboard pendant une impression).
     if (!job && ACTIVE.includes(d.state)) {
-      job = { start: Date.now() };
+      job = { start: Date.now(), slots: new Set() };
       loadInfo(job, d);
+    }
+    // Emplacements de l'AMS réellement utilisés pendant l'impression (hors chauffe et purge de fin).
+    if (job && d.state === 'RUNNING' && typeof d.activeSlot === 'number' && !job.slots.has(d.activeSlot)) {
+      job.slots.add(d.activeSlot);
+      log(`Filament utilisé : AMS ${d.activeSlot}`);
+      checkStock(job);
     }
 
     if (prev && prev.state !== d.state) {

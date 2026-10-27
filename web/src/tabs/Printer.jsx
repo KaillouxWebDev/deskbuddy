@@ -89,7 +89,7 @@ export default function Printer({ state, now, send }) {
           {p.state === 'RUNNING' && end && <div className="small sec center">fin estimée vers {end}</div>}
           {p.job?.estimate && (
             <div className="small dim center">
-              ~{p.job.estimate.grams} g · ~{p.job.estimate.cost.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              ~{p.job.estimate.grams} g{p.job.spool ? ` ${p.job.spool.toLowerCase()}` : ''} · ~{p.job.estimate.cost.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
             </div>
           )}
         </div>

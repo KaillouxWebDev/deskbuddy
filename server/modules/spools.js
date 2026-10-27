@@ -178,13 +178,17 @@ export function createSpools(store, { dataDir }) {
     );
   };
 
-  /** Retire du stock le filament consommé ; renvoie le détail pour le journal. */
-  const consume = (filaments, fraction) => {
+  /** Bobine actuellement chargée dans un emplacement de l'AMS. */
+  const bySlot = (slot) => Object.values(spools).find((s) => s.slot === slot) || null;
+
+  /** Retire du stock le filament consommé ; renvoie le détail pour le journal.
+   *  pick : choisit la bobine d'un filament (par défaut, comparaison de couleur). */
+  const consume = (filaments, fraction, pick = match) => {
     const done = [];
     for (const f of filaments) {
       const g = Math.round(f.usedG * fraction * 10) / 10;
       if (!g) continue;
-      const s = match(f);
+      const s = pick(f);
       if (s) {
         s.grams = Math.max(0, s.grams - g);
         checkLow(s);
@@ -222,5 +226,5 @@ export function createSpools(store, { dataDir }) {
   });
 
   publish();
-  return { observe, match, consume };
+  return { observe, match, bySlot, consume };
 }
