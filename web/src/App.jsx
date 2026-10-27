@@ -8,12 +8,14 @@ import SleepOverlay from './components/SleepOverlay.jsx';
 import Radar from './tabs/Radar.jsx';
 import Printer from './tabs/Printer.jsx';
 import Clock from './tabs/Clock.jsx';
-import Satellites from './tabs/Satellites.jsx';
+import Space from './tabs/Space.jsx';
+import Weather from './tabs/Weather.jsx';
 import System from './tabs/System.jsx';
 
 export const TABS = [
   { id: 'radar', label: 'RADAR' },
-  { id: 'sky', label: 'SATELLITES' },
+  { id: 'weather', label: 'MÉTÉO' },
+  { id: 'sky', label: 'ESPACE' },
   { id: 'printer', label: 'IMPRIMANTE' },
   { id: 'clock', label: 'HORLOGE' }
 ];
@@ -88,7 +90,8 @@ export default function App() {
       />
       <main className="content">
         {tab === 'radar' && <Radar {...props} />}
-        {tab === 'sky' && <Satellites {...props} />}
+        {tab === 'weather' && <Weather {...props} />}
+        {tab === 'sky' && <Space {...props} />}
         {tab === 'printer' && <Printer {...props} />}
         {tab === 'clock' && <Clock {...props} />}
         {tab === 'system' && <System {...props} mode={mode} />}

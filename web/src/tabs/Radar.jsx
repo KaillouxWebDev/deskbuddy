@@ -35,21 +35,7 @@ function PlaneIcon({ track, kind }) {
 
 const ICON = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
 
-function CloudIcon() {
-  return (
-    <svg {...ICON}>
-      <path d="M7 18 H17 A4 4 0 0 0 17.4 10.03 A5.5 5.5 0 0 0 6.6 9.2 A4.4 4.4 0 0 0 7 18 Z" />
-    </svg>
-  );
-}
 
-function BoltIcon() {
-  return (
-    <svg {...ICON}>
-      <path d="M13 2 L4.5 13.5 H11 L10 22 L19.5 9.5 H13 Z" />
-    </svg>
-  );
-}
 
 function AntennaIcon() {
   return (
@@ -144,85 +130,6 @@ function FreqPanel({ airports, highlight }) {
   );
 }
 
-/* ---------- Calques météo : pluie (RainViewer) et éclairs (Meteosat MTG, EUMETSAT) ---------- */
-
-const EARTH_R = 6378137;
-const RAIN_ZOOM = 7; // zoom max de l'API gratuite RainViewer
-const toRad = (d) => (d * Math.PI) / 180;
-
-function worldPx(lat, lon, z) {
-  const n = 256 * 2 ** z;
-  const phi = toRad(lat);
-  return { x: ((lon + 180) / 360) * n, y: ((1 - Math.log(Math.tan(phi) + 1 / Math.cos(phi)) / Math.PI) / 2) * n };
-}
-
-function useRainFrame(enabled) {
-  const [frame, setFrame] = useState(null);
-  useEffect(() => {
-    if (!enabled) return undefined;
-    let alive = true;
-    const load = async () => {
-      try {
-        const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-        const json = await res.json();
-        const last = json.radar?.past?.at(-1);
-        if (alive && last) setFrame({ host: json.host, path: last.path, time: last.time * 1000 });
-      } catch {
-        /* on garde l'image précédente */
-      }
-    };
-    load();
-    const id = setInterval(load, 5 * 60_000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [enabled]);
-  return frame;
-}
-
-function WeatherLayer({ home, range, rain, lightning, now }) {
-  const frame = useRainFrame(rain);
-  if (!home || (!rain && !lightning)) return null;
-  const halfKm = (range * 200) / 180; // le disque fait 200 px de rayon, l'anneau extérieur 180 px
-
-  let tiles = [];
-  if (rain && frame) {
-    const h = worldPx(home.lat, home.lon, RAIN_ZOOM);
-    const s = ((156.543 * Math.cos(toRad(home.lat))) / 2 ** RAIN_ZOOM) * (200 / halfKm); // px écran par px de tuile
-    const span = 200 / s;
-    for (let tx = Math.floor((h.x - span) / 256); tx <= Math.floor((h.x + span) / 256); tx++) {
-      for (let ty = Math.floor((h.y - span) / 256); ty <= Math.floor((h.y + span) / 256); ty++) {
-        tiles.push({ key: `${tx}-${ty}`, left: 200 + (tx * 256 - h.x) * s, top: 200 + (ty * 256 - h.y) * s, size: 256 * s, src: `${frame.host}${frame.path}/256/${RAIN_ZOOM}/${tx}/${ty}/2/1_1.png` });
-      }
-    }
-  }
-
-  let lightningSrc = null;
-  if (lightning) {
-    const mx = EARTH_R * toRad(home.lon);
-    const my = EARTH_R * Math.log(Math.tan(Math.PI / 4 + toRad(home.lat) / 2));
-    const half = (halfKm * 1000) / Math.cos(toRad(home.lat));
-    const bbox = [mx - half, my - half, mx + half, my + half].map((v) => Math.round(v)).join(',');
-    const slot = Math.floor(now / 300_000); // nouvelle image toutes les 5 min
-    lightningSrc = `https://view.eumetsat.int/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=mtg_fd:li_afa&styles=&crs=EPSG:3857&bbox=${bbox}&width=400&height=400&format=image/png&transparent=true&_=${slot}`;
-  }
-
-  return (
-    <div className="wx-layer" aria-hidden="true">
-      {tiles.map((t) => (
-        // La tuile sert de masque : la pluie s'affiche d'une seule teinte froide, pour ne pas se confondre avec les éclairs.
-        <div
-          key={t.key}
-          className="wx-rain"
-          style={{ left: t.left, top: t.top, width: t.size, height: t.size, WebkitMaskImage: `url(${t.src})`, maskImage: `url(${t.src})` }}
-        />
-      ))}
-      {lightningSrc && <img className="wx-lightning" src={lightningSrc} alt="" />}
-    </div>
-  );
-}
-
 export default function Radar({ state, settings, send, now }) {
   const [lockedId, setLockedId] = useState(null);
   const [showFreq, setShowFreq] = useState(false);
@@ -293,7 +200,6 @@ export default function Radar({ state, settings, send, now }) {
             })}
           <circle cx={C} cy={C} r="4" className="radar-home" />
         </svg>
-        <WeatherLayer home={state.home} range={range} rain={settings.rain} lightning={settings.lightning} now={now} />
         {settings.sweep && <div className="sweep" aria-hidden="true" />}
         {[1, 2, 3, 4].map((n) => (
           <span key={n} className="ring-label" style={{ top: C - 45 * n - 2 }}>
@@ -337,12 +243,6 @@ export default function Radar({ state, settings, send, now }) {
             onClick={() => setShowFreq((v) => !v)}
           >
             <AntennaIcon />
-          </button>
-          <button type="button" className={`square-btn${settings.rain ? ' is-on' : ''}`} aria-pressed={settings.rain} aria-label="Pluie" onClick={() => send('settings:update', { rain: !settings.rain })}>
-            <CloudIcon />
-          </button>
-          <button type="button" className={`square-btn${settings.lightning ? ' is-on' : ''}`} aria-pressed={settings.lightning} aria-label="Orages (éclairs)" onClick={() => send('settings:update', { lightning: !settings.lightning })}>
-            <BoltIcon />
           </button>
         </div>
       </section>

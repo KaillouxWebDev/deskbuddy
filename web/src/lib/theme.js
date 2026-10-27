@@ -24,7 +24,8 @@ export const DEFAULT_SETTINGS = {
   rangeKm: 60,
   sweep: true,
   rain: false,
-  lightning: false
+  lightning: false,
+  wxRangeKm: 120
 };
 
 /** Mode "auto" : clair de 8 h à 19 h, sombre le reste du temps. */

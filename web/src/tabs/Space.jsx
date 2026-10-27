@@ -2,6 +2,17 @@ import React, { useState } from 'react';
 import { useNow } from '../lib/useDeskbuddy.js';
 import { hhmm, mmss } from '../lib/format.js';
 import SatInfoModal from '../components/SatInfoModal.jsx';
+import Segmented from '../components/Segmented.jsx';
+import { LaunchesPanel, SolarPanel } from './SpacePanels.jsx';
+
+function EyeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-label="visible à l'œil nu">
+      <path d="M2 12 C5 6 19 6 22 12 C19 18 5 18 2 12 Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
 
 const R = 180; // horizon (0°) sur l'anneau extérieur
 const C = 202;
@@ -35,10 +46,11 @@ function Freq({ f, live }) {
   );
 }
 
-export default function Satellites({ state }) {
+export default function Space({ state }) {
   const now = useNow(1000);
   const [selId, setSelId] = useState(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [view, setView] = useState('passes');
   const passes = (state.satPasses?.passes || []).filter((p) => p.los > now);
   const live = state.satLive?.sats || [];
   const inView = live.filter((s) => s.visible).sort((a, b) => b.el - a.el);
@@ -101,7 +113,21 @@ export default function Satellites({ state }) {
         </button>
       </section>
 
-      <section className="col" aria-label="Passage sélectionné">
+      <section className="col" aria-label="Espace">
+        <Segmented
+          label="Vue"
+          value={view}
+          onChange={setView}
+          items={[
+            ['passes', 'PASSAGES'],
+            ['solar', 'SOLEIL'],
+            ['launches', 'LANCEMENTS']
+          ]}
+        />
+        {view === 'solar' && <SolarPanel space={state.space} />}
+        {view === 'launches' && <LaunchesPanel space={state.space} now={now} />}
+        {view === 'passes' && (
+        <>
         <div className="card sat-card">
           <div className="card-head">
             <span className="caption">{visible ? 'EN VUE' : 'PROCHAIN PASSAGE'}</span>
@@ -119,6 +145,11 @@ export default function Satellites({ state }) {
                     {hhmm(new Date(pass.aos))} {card(pass.aosAz)} → {hhmm(new Date(pass.los))} {card(pass.losAz)}
                     {visible ? ` · élév. ${Math.round(sat.el)}° az ${Math.round(sat.az)}°` : ''}
                   </div>
+                  {pass.visible && (
+                    <div className="naked-eye">
+                      <EyeIcon /> visible à l'œil nu de {hhmm(new Date(pass.visStart))} à {hhmm(new Date(pass.visEnd))}, apparaît au {card(pass.visStartAz)}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="small dim">Pas de passage dans les 24 h.</div>
@@ -146,12 +177,16 @@ export default function Satellites({ state }) {
                 onClick={() => setSelId(p.satId)}
               >
                 <span>{p.aos <= now ? 'EN VUE' : hhmm(new Date(p.aos))}</span>
-                <span className="ellipsis">{p.name}</span>
+                <span className="ellipsis">
+                  {p.name} {p.visible && <EyeIcon />}
+                </span>
                 <span className="right">{p.maxEl}°</span>
               </button>
             ))}
           </div>
         </div>
+        </>
+        )}
       </section>
       {showInfo && (
         <SatInfoModal catalog={state.satCatalog || []} passes={passes} initialId={satId} onClose={() => setShowInfo(false)} />

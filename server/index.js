@@ -11,6 +11,8 @@ import { startPrinter } from './modules/printer.js';
 import { startTimers } from './modules/timers.js';
 import { startAirports } from './modules/airports.js';
 import { startSatellites } from './modules/satellites.js';
+import { startWeather } from './modules/weather.js';
+import { startSpace } from './modules/space.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../dist');
@@ -34,6 +36,8 @@ if (Number.isFinite(HOME.lat) && Number.isFinite(HOME.lon)) store.set('home', HO
 startAircraft(store, { ...HOME, pollMs: Math.max(5, Number(process.env.AIRCRAFT_POLL_S || 8)) * 1000 });
 startAirports(store, { ...HOME, dataDir: DATA_DIR });
 startSatellites(store, { ...HOME, dataDir: DATA_DIR });
+startWeather(store, { ...HOME, area: process.env.WEATHER_AREA || 'Rhône', dataDir: DATA_DIR });
+startSpace(store);
 startPrinter(store, {
   host: process.env.BAMBU_HOST,
   serial: process.env.BAMBU_SERIAL,

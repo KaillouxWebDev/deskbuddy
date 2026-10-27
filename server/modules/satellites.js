@@ -111,6 +111,34 @@ const STEP_S = 30;
 const MIN_PASS_EL = 5; // passages trop rasants ignorés
 const NOTIFY_EL = 20; // notif « passage dans 2 min » au-dessus de cette élévation max
 const NOTIFY_BEFORE_S = 120;
+const VISIBLE_MIN_EL = 10; // en dessous, l'ISS se perd dans la brume et les obstacles
+const DARK_SUN_EL = -6; // fin du crépuscule civil : le ciel est assez sombre
+const ISS_ID = 25544;
+const EARTH_R = 6378.137;
+const AU_KM = 149_597_870.7;
+
+/** Position approchée du Soleil (repère inertiel, km), suffisante pour savoir si un satellite est éclairé. */
+function sunEci(date) {
+  const n = date.getTime() / 86400_000 + 2440587.5 - 2451545.0;
+  const L = degreesToRadians((280.46 + 0.9856474 * n) % 360);
+  const g = degreesToRadians((357.528 + 0.9856003 * n) % 360);
+  const lambda = L + degreesToRadians(1.915) * Math.sin(g) + degreesToRadians(0.02) * Math.sin(2 * g);
+  const eps = degreesToRadians(23.439 - 0.0000004 * n);
+  const r = (1.00014 - 0.01671 * Math.cos(g) - 0.00014 * Math.cos(2 * g)) * AU_KM;
+  return { x: r * Math.cos(lambda), y: r * Math.cos(eps) * Math.sin(lambda), z: r * Math.sin(eps) * Math.sin(lambda) };
+}
+
+/** Le satellite est-il hors de l'ombre de la Terre (modèle d'ombre cylindrique) ? */
+function sunlit(pos, sun) {
+  const sl = Math.hypot(sun.x, sun.y, sun.z);
+  const ux = sun.x / sl;
+  const uy = sun.y / sl;
+  const uz = sun.z / sl;
+  const along = pos.x * ux + pos.y * uy + pos.z * uz;
+  if (along > 0) return true; // côté jour
+  const perp = Math.hypot(pos.x - along * ux, pos.y - along * uy, pos.z - along * uz);
+  return perp > EARTH_R;
+}
 
 async function fetchTle(id) {
   const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?CATNR=${id}&FORMAT=TLE`, {
@@ -172,8 +200,12 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
     const pv = propagate(rec, date);
     if (!pv || !pv.position || typeof pv.position === 'boolean') return null;
     const la = ecfToLookAngles(observer, eciToEcf(pv.position, gstime(date)));
-    return { az: (radiansToDegrees(la.azimuth) + 360) % 360, el: radiansToDegrees(la.elevation), range: la.rangeSat };
+    return { az: (radiansToDegrees(la.azimuth) + 360) % 360, el: radiansToDegrees(la.elevation), range: la.rangeSat, eci: pv.position };
   };
+
+  /** Élévation du Soleil vue de chez toi, en degrés. */
+  const sunElevation = (date, sun) =>
+    radiansToDegrees(ecfToLookAngles(observer, eciToEcf(sun, gstime(date))).elevation);
 
   /** Affine l'instant où l'élévation passe 0° entre t0 (dessous) et t1 (dessus), ou l'inverse. */
   const refine = (rec, t0, t1) => {
@@ -207,6 +239,19 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
         }
         if (cur) {
           cur.path.push([Math.round(p.az * 10) / 10, Math.round(Math.max(0, p.el) * 10) / 10]);
+          // Visible à l'œil nu : assez haut, éclairé par le Soleil, et ton ciel est sombre.
+          if (p.el >= VISIBLE_MIN_EL) {
+            const date = new Date(t);
+            const sun = sunEci(date);
+            if (sunlit(p.eci, sun) && sunElevation(date, sun) < DARK_SUN_EL) {
+              if (!cur.visible) {
+                cur.visible = true;
+                cur.visStart = t;
+                cur.visStartAz = Math.round(p.az);
+              }
+              cur.visEnd = t;
+            }
+          }
           if (p.el > cur.maxEl) {
             cur.maxEl = p.el;
             cur.maxAt = t;
@@ -258,6 +303,14 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
         notified.add(key);
         const main = SATELLITES.find((s) => s.id === pass.satId)?.freqs.find((f) => f.down);
         store.toast('info', `${pass.name} DANS 2 MIN`, `max ${pass.maxEl}°${main ? ` · ${main.down.toFixed(3)} MHz` : ''}`);
+      }
+      // ISS visible à l'œil nu : prévenir 5 minutes avant, avec la direction où regarder.
+      const vkey = `vis-${key}`;
+      const vdt = ((pass.visStart || 0) - now.getTime()) / 1000;
+      if (pass.satId === ISS_ID && pass.visible && pass.maxEl >= NOTIFY_EL && vdt > 0 && vdt <= 300 && !notified.has(vkey)) {
+        notified.add(vkey);
+        const dirs = ['nord', 'nord-est', 'est', 'sud-est', 'sud', 'sud-ouest', 'ouest', 'nord-ouest'];
+        store.toast('info', 'ISS VISIBLE À L\'ŒIL NU', `dans 5 min · apparaît au ${dirs[Math.round(pass.visStartAz / 45) % 8]} · max ${pass.maxEl}°`, { sticky: true });
       }
     }
   };

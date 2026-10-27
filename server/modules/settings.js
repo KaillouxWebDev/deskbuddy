@@ -12,14 +12,16 @@ export const DEFAULT_SETTINGS = {
   rangeKm: 60,
   sweep: true,
   rain: false,
-  lightning: false
+  lightning: false,
+  wxRangeKm: 120
 };
 
 const ENUMS = {
   theme: ['dark', 'light', 'auto'],
   primary: ['vert', 'cyan', 'ambre', 'rose'],
   secondary: ['ambre', 'rouge', 'cyan', 'violet'],
-  rangeKm: [15, 30, 60, 100]
+  rangeKm: [15, 30, 60, 100],
+  wxRangeKm: [30, 60, 120, 200]
 };
 
 function sanitize(key, value) {
