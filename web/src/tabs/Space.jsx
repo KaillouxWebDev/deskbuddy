@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Empty } from '../components/Status.jsx';
 import { useNow } from '../lib/useDeskbuddy.js';
 import { hhmm, mmss } from '../lib/format.js';
 import SatInfoModal from '../components/SatInfoModal.jsx';
@@ -162,7 +163,7 @@ export default function Space({ state }) {
               {visible && <div className="small dim">Fréquences corrigées de l'effet Doppler en direct.</div>}
             </>
           ) : (
-            <p className="empty">{state.satPasses?.error || (state.satPasses?.loading ? 'Calcul des orbites…' : 'Aucun satellite.')}</p>
+            <Empty loading={state.satPasses?.loading ? 'Calcul des orbites…' : 'Aucun passage prévu.'} failed="Orbites indisponibles" error={state.satPasses?.tleError} retryAt={state.satPasses?.tleRetryAt} />
           )}
         </div>
 

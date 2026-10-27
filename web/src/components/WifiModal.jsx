@@ -81,7 +81,7 @@ export default function WifiModal({ wifi, send, onClose }) {
           <p className="empty">
             Wi-Fi non pilotable : {wifi.error || 'NetworkManager introuvable'}.
             <br />
-            Il faut « pid: host » dans docker-compose.yml (fourni par la mise à jour).
+            Le Wi-Fi passe par le service hôte du Pi : relance ./scripts/install-pi.sh s'il est absent.
           </p>
         ) : (
           <div className="wifi-list">

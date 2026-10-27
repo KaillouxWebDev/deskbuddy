@@ -28,6 +28,13 @@ sudo apt-get install -y -qq cage curl git python3
 sudo apt-get install -y -qq wlrctl || echo "(wlrctl indisponible : le curseur ne sera pas garé dans le coin, seulement rendu invisible)"
 sudo apt-get install -y -qq chromium 2>/dev/null || sudo apt-get install -y -qq chromium-browser
 
+say "Service hôte (écran, Wi-Fi, fuseau horaire) et droits du dossier data"
+# shellcheck source=lib-hostd.sh
+. "$REPO_DIR/scripts/lib-hostd.sh"
+install_hostd "$REPO_DIR" "$USER_NAME"
+fix_data_owner "$REPO_DIR"
+ensure_ids_in_env "$REPO_DIR/.env"
+
 say "Image Docker"
 if ! docker compose pull; then
   die "Impossible de récupérer l'image. Si le paquet GHCR est privé : docker login ghcr.io -u <ton-user-github> (token avec le droit read:packages), puis relance."

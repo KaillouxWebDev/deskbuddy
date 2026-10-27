@@ -1,3 +1,4 @@
+import { periodic } from '../lib/task.js';
 /*
  * Météo de l'espace et lancements :
  * - conditions solaires et propagation HF : flux XML de N0NBH (hamqsl.com), utilisé par les « HamClock »
@@ -63,18 +64,8 @@ async function launches() {
 
 export function startSpace(store) {
   store.set('space', {});
-  const run = (name, fn) => async () => {
-    try {
-      store.update('space', { [name]: { ...(await fn()), at: Date.now() }, [`${name}Error`]: null });
-    } catch (err) {
-      console.error(`[space] ${name} : ${err.message}`);
-      store.update('space', { [`${name}Error`]: err.message });
-    }
-  };
-  const doSolar = run('solar', solar);
-  const doLaunches = run('launches', async () => ({ list: await launches() }));
-  doSolar();
-  doLaunches();
-  setInterval(doSolar, 60 * 60_000);
-  setInterval(doLaunches, 60 * 60_000);
+  const task = (name, fn) =>
+    periodic(store, { key: 'space', name, everyMs: 60 * 60_000, tag: 'space', run: async () => store.update('space', { [name]: { ...(await fn()), at: Date.now() } }) });
+  task('solar', solar);
+  task('launches', async () => ({ list: await launches() }));
 }

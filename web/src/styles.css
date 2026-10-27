@@ -85,6 +85,8 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .live { display: flex; align-items: center; gap: 6px; }
 .live.is-off { color: var(--danger); }
 .live.is-off .dot { background: var(--danger); }
+.live.is-offline { color: var(--sec); }
+.live.is-offline .dot { background: var(--sec); }
 .header-time { font-family: var(--display); font-size: 22px; color: var(--prim); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--prim); display: inline-block; }
 .dot-danger { background: var(--danger); }
@@ -541,7 +543,7 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .wx-bolt-key { color: #ffd23f; }
 
 /* ---------- Stock de filament ---------- */
-.link-btn { min-height: 32px; padding: 0 10px; background: var(--soft); border: 1px solid var(--line); border-radius: 16px; color: var(--prim); font-family: var(--display); font-size: 12px; letter-spacing: 1px; cursor: pointer; }
+.link-btn { min-height: 40px; padding: 0 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 20px; color: var(--prim); font-family: var(--display); font-size: 12px; letter-spacing: 1px; cursor: pointer; }
 .tray .small.danger { color: var(--danger); }
 .stock-card { display: flex; flex-direction: column; padding: 14px 18px; gap: 12px; }
 .stock-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -557,22 +559,27 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .spool-name { display: flex; flex-direction: column; min-width: 0; font-family: var(--display); font-size: 15px; }
 .spool-slot { margin-left: auto; flex-shrink: 0; font-size: 10px; letter-spacing: 1px; padding: 2px 6px; border: 1px solid var(--prim); }
 .spool-foot { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--display); font-size: 16px; }
-.spool-btn { min-height: 36px; background: transparent; border: 1px solid var(--line); color: var(--dim); font-family: var(--display); font-size: 11px; letter-spacing: 1px; cursor: pointer; }
+.spool-btn { min-height: 40px; background: transparent; border: 1px solid var(--line); color: var(--dim); font-family: var(--display); font-size: 11px; letter-spacing: 1px; cursor: pointer; }
 .spool .bar { flex: none; height: 6px; }
 .spool.is-loaded.is-low, .spool.is-low { border-color: var(--danger); }
 .spool.needs-level { border-color: var(--sec); }
 .level-pick { display: flex; flex-direction: column; gap: 6px; }
 .level-btns { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
-.level-btns button { min-height: 40px; padding: 0; background: var(--panel); border: 1px solid var(--sec); color: var(--sec); font-family: var(--display); font-size: 14px; cursor: pointer; }
+.level-btns button { min-height: 40px; padding: 0; background: var(--panel); border: 1px solid var(--sec); color: var(--sec); font-family: var(--display); font-size: 13px; cursor: pointer; }
 .spool-btns { display: flex; gap: 6px; }
 .spool-btns .spool-btn { flex: 1; }
-button.spool-top { background: transparent; border: 0; padding: 0; color: inherit; text-align: left; cursor: pointer; min-height: 36px; width: 100%; }
+button.spool-top { background: transparent; border: 0; padding: 0; color: inherit; text-align: left; cursor: pointer; min-height: 40px; width: 100%; }
 .spool.is-editing { border-color: var(--sec); grid-column: span 2; }
 .grams-step { display: grid; grid-template-columns: 1fr 1fr 1.6fr 1fr 1fr; gap: 4px; align-items: center; }
 .grams-step button { min-height: 40px; padding: 0; background: var(--panel); border: 1px solid var(--line); color: var(--prim); font-family: var(--display); font-size: 14px; cursor: pointer; }
 .grams-val { text-align: center; font-family: var(--display); font-size: 18px; color: var(--sec); }
 .spool-btn.is-primary { background: var(--prim); color: var(--bg); border-color: var(--prim); }
 .stock-grid { align-items: start; }
+
+/*
+ * Tailles de boutons (tactile) : 40 px (secondaire, dans une carte), 44 px (standard), 52 px (ligne de liste).
+ * .btn = action standard, .btn-prim = action principale, .spool-btn = action secondaire compacte.
+ */
 
 /* ---------- Lieu et Wi-Fi (réglages) ---------- */
 .place-card { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; padding-bottom: 6px; }
@@ -601,9 +608,10 @@ button.spool-top { background: transparent; border: 0; padding: 0; color: inheri
 .kb-ok:disabled { opacity: 0.35; }
 
 /* ---------- Pavé numérique (position) ---------- */
-.numpad-card { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; padding: 14px 18px; }
+.numpad-card { display: grid; grid-template-columns: minmax(0, 1fr) 330px; grid-template-rows: auto minmax(0, 1fr); gap: 10px 18px; padding: 14px 18px; }
+.np-head { grid-column: 1 / -1; }
 .numpad-left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.np-field { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px 12px; min-height: 64px; background: var(--soft); border: 1px solid var(--line); color: inherit; cursor: pointer; text-align: left; }
+.np-field { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 12px; min-height: 58px; background: var(--soft); border: 1px solid var(--line); color: inherit; cursor: pointer; text-align: left; }
 .np-field.is-on { border: 2px solid var(--prim); }
 .np-field.is-bad .np-value { color: var(--danger); }
 .np-value { font-family: var(--display); font-size: 26px; color: var(--prim); }
@@ -621,7 +629,7 @@ button.spool-top { background: transparent; border: 0; padding: 0; color: inheri
 .wifi-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 .wifi-row { border: 1px solid var(--line); background: var(--soft); flex-shrink: 0; }
 .wifi-row.is-active { border-color: var(--prim); }
-.wifi-main { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: transparent; border: 0; color: var(--prim); cursor: pointer; text-align: left; }
+.wifi-main { width: 100%; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: transparent; border: 0; color: var(--prim); cursor: pointer; text-align: left; }
 .wifi-ssid { flex: 1; font-family: var(--display); font-size: 17px; }
 .wifi-menu { display: flex; gap: 6px; padding: 0 10px 10px; }
 .wifi-menu .spool-btn { flex: 1; }
@@ -629,3 +637,7 @@ button.spool-top { background: transparent; border: 0; padding: 0; color: inheri
 .pi-stats { row-gap: 8px; }
 .pi-stats .value { font-size: 20px; }
 .pi-stats .value.md { font-size: 15px; }
+
+/* ---------- États unifiés (chargement, indisponible, données anciennes) ---------- */
+.status-empty { display: flex; flex-direction: column; gap: 4px; }
+.stale { color: var(--sec); border: 1px dashed color-mix(in srgb, var(--sec) 60%, transparent); padding: 3px 8px; flex-shrink: 0; }

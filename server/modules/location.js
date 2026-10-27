@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { host } from '../lib/host.js';
+import { writeJson } from '../lib/fsx.js';
 import path from 'node:path';
 
 /*
@@ -40,15 +42,24 @@ async function reverse(lat, lon) {
   };
 }
 
+/** Fuseau horaire du lieu (Open-Meteo le déduit des coordonnées). */
+async function timezoneOf(lat, lon) {
+  const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=1&current=is_day`, {
+    signal: AbortSignal.timeout(15_000)
+  });
+  if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
+  return (await res.json()).timezone || null;
+}
+
 /**
  * onChange(loc) est appelé au démarrage puis à chaque changement :
  * loc = { lat, lon, label, area, alertAreas, feed, country, isHome }
  */
-export function startLocation(store, { home, homeArea, dataDir, onChange }) {
+export function startLocation(store, { home, homeArea, homeTz = 'Europe/Paris', dataDir, onChange }) {
   const file = path.join(dataDir, 'location.json');
   const homeOk = Number.isFinite(home.lat) && Number.isFinite(home.lon);
   const homeLoc = homeOk
-    ? { lat: home.lat, lon: home.lon, label: 'Maison', area: homeArea, alertAreas: [homeArea], feed: 'france', country: null }
+    ? { lat: home.lat, lon: home.lon, label: 'Maison', area: homeArea, alertAreas: [homeArea], feed: 'france', country: null, tz: homeTz }
     : null;
 
   let loc = null;
@@ -60,14 +71,29 @@ export function startLocation(store, { home, homeArea, dataDir, onChange }) {
   if (!loc || !Number.isFinite(loc.lat)) loc = homeLoc;
 
   const isHome = (l) => Boolean(homeLoc && l && round(l.lat) === round(homeLoc.lat) && round(l.lon) === round(homeLoc.lon));
+  /*
+   * Fuseau horaire : le serveur (veille nocturne, heures dans les notifs) et le Pi lui-même (horloge de
+   * l'écran, via le service hôte) suivent le lieu. Sans fuseau connu, on garde le dernier.
+   */
+  let appliedTz = null;
+  const applyTz = (tz) => {
+    if (!tz || tz === appliedTz) return;
+    appliedTz = tz;
+    process.env.TZ = tz; // Node relit le fuseau à chaque changement de TZ
+    host('timezone.set', { zone: tz })
+      .then(() => console.log(`[location] fuseau horaire : ${tz}`))
+      .catch((e) => console.error(`[location] fuseau du Pi non modifié : ${e.message}`));
+  };
+
   const publish = () => {
-    store.set('home', loc ? { lat: loc.lat, lon: loc.lon, label: loc.label, area: loc.area, country: loc.country, isHome: isHome(loc), pending: Boolean(loc.pending), canGoHome: Boolean(homeLoc) } : null);
+    if (loc?.tz) applyTz(loc.tz);
+    store.set('home', loc ? { lat: loc.lat, lon: loc.lon, label: loc.label, area: loc.area, country: loc.country, tz: loc.tz || appliedTz, isHome: isHome(loc), pending: Boolean(loc.pending), canGoHome: Boolean(homeLoc) } : null);
   };
   const apply = (next) => {
     loc = next;
     try {
       if (isHome(loc)) fs.rmSync(file, { force: true });
-      else fs.writeFileSync(file, JSON.stringify(loc, null, 2));
+      else writeJson(file, loc, true);
     } catch (err) {
       console.error('[location] écriture impossible', err.message);
     }
@@ -78,14 +104,14 @@ export function startLocation(store, { home, homeArea, dataDir, onChange }) {
   /** Nom du lieu et zone de vigilance ; sans réseau, on réessaiera plus tard. */
   const geocode = async (l) => {
     try {
-      const info = await reverse(l.lat, l.lon);
+      const [info, tz] = await Promise.all([reverse(l.lat, l.lon), timezoneOf(l.lat, l.lon)]);
       if (loc !== l) return; // position changée entre-temps
-      const next = { ...l, ...info, label: info.label || l.label, pending: false };
+      const next = { ...l, ...info, tz: tz || l.tz, label: info.label || l.label, pending: false };
       const areasChanged = JSON.stringify(next.alertAreas) !== JSON.stringify(l.alertAreas) || next.feed !== l.feed;
       if (areasChanged) apply(next);
       else {
         loc = next;
-        fs.writeFileSync(file, JSON.stringify(loc, null, 2));
+        writeJson(file, loc, true);
         publish();
       }
     } catch (err) {
@@ -107,7 +133,7 @@ export function startLocation(store, { home, homeArea, dataDir, onChange }) {
       return;
     }
     // On repart tout de suite (avions, satellites...) ; le nom du lieu arrive dès que Nominatim répond.
-    const next = { ...l, label: `${l.lat.toFixed(3)}, ${l.lon.toFixed(3)}`, area: null, alertAreas: [], feed: null, country: null, pending: true };
+    const next = { ...l, label: `${l.lat.toFixed(3)}, ${l.lon.toFixed(3)}`, area: null, alertAreas: [], feed: null, country: null, tz: null, pending: true };
     apply(next);
     store.toast('info', 'NOUVELLE POSITION', `${next.label} · radar, météo et satellites recalculés`);
     geocode(next);

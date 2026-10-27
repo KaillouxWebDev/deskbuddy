@@ -1,8 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
-import path from 'node:path';
-
-const BACKLIGHT_ROOT = '/sys/class/backlight';
+import { host } from '../lib/host.js';
 
 const read = (p) => {
   try {
@@ -11,23 +9,6 @@ const read = (p) => {
     return null;
   }
 };
-const write = (p, v) => {
-  try {
-    fs.writeFileSync(p, String(v));
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-function findBacklight() {
-  try {
-    const dir = fs.readdirSync(BACKLIGHT_ROOT)[0];
-    return dir ? path.join(BACKLIGHT_ROOT, dir) : null;
-  } catch {
-    return null;
-  }
-}
 
 /** "23:00" à "07:00" passe minuit : on gère les deux cas. */
 export function inWindow(hm, from, to) {
@@ -63,27 +44,28 @@ function disk(dir) {
 }
 
 export function startSystem(store, { dataDir }) {
-  /* ---------- Écran : rétroéclairage, veille, luminosité ---------- */
-  const bl = findBacklight();
-  const max = bl ? Number(read(path.join(bl, 'max_brightness'))) || 255 : 0;
-  const blPower = bl ? path.join(bl, 'bl_power') : null;
-
-  const applyBrightness = (pct) => (bl ? write(path.join(bl, 'brightness'), Math.max(1, Math.round((max * pct) / 100))) : false);
-
-  const setScreen = (on) => {
-    if (!bl) return false;
-    if (blPower && fs.existsSync(blPower)) {
-      const ok = write(blPower, on ? 0 : 1);
-      if (on) applyBrightness(store.get('settings').brightness);
-      return ok;
+  /* ---------- Écran : rétroéclairage, veille, luminosité (via le service hôte) ---------- */
+  let bl = false;
+  const applyBrightness = (pct) => bl && host('backlight.set', { pct }).catch((e) => console.error('[screen]', e.message));
+  const setScreen = async (on) => {
+    if (!bl) return;
+    try {
+      await host('backlight.power', { on });
+      if (on) await host('backlight.set', { pct: store.get('settings').brightness });
+    } catch (e) {
+      console.error('[screen]', e.message);
     }
-    return on ? applyBrightness(store.get('settings').brightness) : write(path.join(bl, 'brightness'), 0);
   };
 
-  const writable = bl ? applyBrightness(store.get('settings').brightness) : false;
-  store.set('screen', { asleep: false, reason: null, backlight: Boolean(bl), writable });
-  if (!bl) console.log('[screen] pas de rétroéclairage pilotable (normal hors Pi) : la veille sera simulée à l\'écran');
-  else if (!writable) console.warn('[screen] rétroéclairage trouvé mais pas modifiable : le conteneur doit être "privileged"');
+  store.set('screen', { asleep: false, reason: null, backlight: false, writable: false });
+  host('backlight.info')
+    .then((info) => {
+      bl = Boolean(info.present);
+      store.update('screen', { backlight: bl, writable: bl });
+      if (bl) applyBrightness(store.get('settings').brightness);
+      else console.log('[screen] pas de rétroéclairage (normal hors Pi) : la veille sera simulée à l\'écran');
+    })
+    .catch((e) => console.log(`[screen] ${e.message} : la veille sera simulée à l'écran`));
 
   const sleep = (reason) => {
     setScreen(false);

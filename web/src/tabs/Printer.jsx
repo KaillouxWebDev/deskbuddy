@@ -46,6 +46,14 @@ export default function Printer({ state, now, send }) {
       </Notice>
     );
   }
+  // Dashboard emmené ailleurs : l'imprimante est sur le réseau de la maison, ce n'est pas une panne.
+  if (!p.connected && state.home && !state.home.isHome) {
+    return (
+      <Notice title="IMPRIMANTE HORS DE PORTÉE">
+        L'A1 est sur le réseau de la maison. Elle réapparaîtra dès ton retour (bouton MAISON dans les réglages de lieu).
+      </Notice>
+    );
+  }
   if (!p.connected && p.state === undefined) {
     return <Notice title="IMPRIMANTE">Connexion à l'A1…{p.error ? ` (${p.error})` : ''}</Notice>;
   }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Empty, Stale } from '../components/Status.jsx';
 import { hhmm, pad } from '../lib/format.js';
 
 const TONE = { bonne: 'prim', moyenne: 'sec', mauvaise: 'danger' };
@@ -14,10 +15,11 @@ function kpLabel(k) {
 /** Conditions solaires et propagation HF (N0NBH / hamqsl.com). */
 export function SolarPanel({ space }) {
   const s = space?.solar;
-  if (!s) return <p className="empty">{space?.solarError ? `Données solaires indisponibles (${space.solarError})` : 'Chargement des conditions solaires…'}</p>;
+  if (!s) return <Empty loading="Chargement des conditions solaires…" failed="Conditions solaires indisponibles" error={space?.solarError} retryAt={space?.solarRetryAt} />;
   const kp = kpLabel(s.k);
   return (
     <div className="space-panel">
+      <Stale updatedAt={s.at} error={space?.solarError} retryAt={space?.solarRetryAt} />
       <div className="card">
         <div className="card-head">
           <span className="caption">CHAMP MAGNÉTIQUE</span>
@@ -76,10 +78,11 @@ const fmtDate = (ms) => {
 /** Prochains lancements (Launch Library 2). */
 export function LaunchesPanel({ space, now }) {
   const list = (space?.launches?.list || []).filter((l) => l.net > now - 3600_000);
-  if (!list.length) return <p className="empty">{space?.launchesError ? `Lancements indisponibles (${space.launchesError})` : 'Chargement des lancements…'}</p>;
+  if (!list.length) return <Empty loading="Chargement des lancements…" failed="Lancements indisponibles" error={space?.launchesError} retryAt={space?.launchesRetryAt} />;
   const [next, ...rest] = list;
   return (
     <div className="space-panel">
+      <Stale updatedAt={space.launches.at} error={space?.launchesError} retryAt={space?.launchesRetryAt} />
       <div className="card">
         <div className="card-head">
           <span className="caption">PROCHAIN LANCEMENT</span>

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { writeJson } from '../lib/fsx.js';
 import path from 'node:path';
 
 export const DEFAULT_SETTINGS = {
@@ -57,7 +58,7 @@ export function startSettings(store, { dataDir }) {
     clearTimeout(timer);
     timer = setTimeout(() => {
       try {
-        fs.writeFileSync(file, JSON.stringify(store.get('settings'), null, 2));
+        writeJson(file, store.get('settings'), true);
       } catch (err) {
         console.error('[settings] écriture impossible', err.message);
       }

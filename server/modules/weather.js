@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { periodic } from '../lib/task.js';
+import { writeJson } from '../lib/fsx.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
@@ -201,7 +203,7 @@ async function allTowns(dataDir) {
     if (f.length < 15 || Number(f[14]) < 30000) continue;
     towns.push([FR_NAMES[f[1]] || f[1], Number(f[4]), Number(f[5]), Number(f[14])]);
   }
-  fs.writeFileSync(file, JSON.stringify({ at: Date.now(), towns }));
+  writeJson(file, { at: Date.now(), towns });
   return towns;
 }
 
@@ -233,69 +235,27 @@ export function startWeather(store, { lat, lon, area, alertAreas = [area], feed 
   store.set('weather', { area, warnings: [], alertsAvailable: Boolean(feed) });
   const notified = new Set();
 
-  /*
-   * Échec réseau (Wi-Fi coupé, conteneur qui redémarre...) : on ne patiente pas jusqu'au prochain cycle
-   * normal (15 ou 30 min), on réessaie après 1, 2, 5 puis 10 min. Les dernières données restent affichées.
-   */
-  const RETRY_MIN = [1, 2, 5, 10];
-  const failures = {};
-  const retryTimers = {};
-  const safe = (name, fn) => {
-    const run = async () => {
-      clearTimeout(retryTimers[name]);
-      try {
-        await fn();
-        failures[name] = 0;
-        store.update('weather', { [`${name}RetryAt`]: null });
-      } catch (err) {
-        if (!store.alive) return;
-        console.error(`[weather] ${name} : ${err.message}`);
-        const n = (failures[name] = (failures[name] || 0) + 1);
-        const delay = RETRY_MIN[Math.min(n, RETRY_MIN.length) - 1] * 60_000;
-        retryTimers[name] = setTimeout(() => store.alive && run(), delay);
-        store.update('weather', { [`${name}Error`]: err.message, [`${name}RetryAt`]: Date.now() + delay });
-      }
-    };
-    run.failing = () => failures[name] > 0;
-    return run;
-  };
+  const task = (name, everyMs, run) => periodic(store, { key: 'weather', name, everyMs, run, tag: 'weather' });
+  const tz = () => store.get('home')?.tz || process.env.TZ || 'Europe/Paris';
 
-  const doForecast = safe('forecast', async () => store.update('weather', { forecast: { ...(await forecast(lat, lon)), at: Date.now() }, forecastError: null }));
-  const doAir = safe('air', async () => store.update('weather', { air: { ...(await airQuality(lat, lon)), at: Date.now() }, airError: null }));
-  const doWarnings = safe('warnings', async () => {
+  task('forecast', 15 * 60_000, async () => store.update('weather', { forecast: { ...(await forecast(lat, lon)), at: Date.now() } }));
+  task('air', 30 * 60_000, async () => store.update('weather', { air: { ...(await airQuality(lat, lon)), at: Date.now() } }));
+  task('warnings', 10 * 60_000, async () => {
     if (!feed) return;
     const list = await warnings(feed, alertAreas.filter(Boolean), lat, lon);
-    store.update('weather', { warnings: list, warningsError: null });
+    store.update('weather', { warnings: list, warningsAt: Date.now() });
     // Une notif par vigilance (zone + phénomène + niveau), pas à chaque réémission du bulletin.
     // Jaune : notif simple. Orange et rouge : notif qui reste affichée jusqu'à ce que tu la fermes.
     for (const w of list) {
       const key = `${w.area}|${w.type}|${w.level}`;
       if (notified.has(key)) continue;
       notified.add(key);
-      const until = w.expires ? ` · jusqu'à ${new Date(w.expires).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Europe/Paris' })}` : '';
+      const until = w.expires ? ` · jusqu'à ${new Date(w.expires).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: tz() })}` : '';
       store.toast(w.level === 'jaune' ? 'info' : 'warn', `VIGILANCE ${w.level.toUpperCase()}`, `${w.type} · ${w.area}${until}`, { sticky: w.level !== 'jaune' });
     }
     // Vigilance terminée : on l'oublie, pour être prévenu si elle revient plus tard.
     const current = new Set(list.map((w) => `${w.area}|${w.type}|${w.level}`));
     for (const k of notified) if (!current.has(k)) notified.delete(k);
   });
-  const doTowns = safe('towns', async () => store.set('towns', await loadTowns(lat, lon, dataDir)));
-
-  doForecast();
-  doAir();
-  doWarnings();
-  doTowns();
-  store.every(doForecast, 15 * 60_000);
-  store.every(doAir, 30 * 60_000);
-  store.every(doWarnings, 10 * 60_000);
-  store.every(doTowns, 24 * 3600_000);
-
-  // Retour du réseau (Wi-Fi reconnecté) : on relance tout de suite ce qui avait échoué.
-  let wasOnline = Boolean(store.get('wifi')?.current);
-  store.on('patch', (key, value) => {
-    if (key !== 'wifi') return;
-    const online = Boolean(value?.current);
-    if (online && !wasOnline) for (const run of [doForecast, doAir, doWarnings, doTowns]) if (run.failing()) run();
-    wasOnline = online;
-  });
+  task('towns', 24 * 3600_000, async () => store.set('towns', await loadTowns(lat, lon, dataDir)));
 }

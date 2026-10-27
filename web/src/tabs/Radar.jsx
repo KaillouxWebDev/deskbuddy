@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Empty } from '../components/Status.jsx';
 import { dec1, deg, int, signed } from '../lib/format.js';
 
 const RANGES = [15, 30, 60, 100];
@@ -122,7 +123,7 @@ function FreqPanel({ airports, highlight }) {
           </div>
         ))}
         {!list.length && (
-          <p className="empty">{airports.error || (airports.loading ? 'Téléchargement de la base des fréquences…' : 'Aucun aéroport trouvé.')}</p>
+          <Empty loading={airports.loading ? 'Téléchargement de la base des fréquences…' : 'Aucun aéroport avec fréquences à moins de 80 km.'} failed="Base des fréquences indisponible" error={airports.dbError} retryAt={airports.dbRetryAt} />
         )}
       </div>
       <div className="small dim">Source OurAirports · à vérifier sur les cartes VAC du SIA</div>

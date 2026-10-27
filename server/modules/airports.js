@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { periodic } from '../lib/task.js';
+import { writeJson } from '../lib/fsx.js';
 import path from 'node:path';
 
 /*
@@ -120,18 +122,14 @@ export function startAirports(store, { lat, lon, dataDir }) {
   else store.set('airports', { list: [], updatedAt: null, error: null, loading: true });
 
   const refresh = async () => {
-    try {
-      const list = await buildAll();
-      const at = Date.now();
-      fs.writeFileSync(file, JSON.stringify({ at, list }));
-      store.set('airports', { list: nearby(list, lat, lon), updatedAt: at, error: null });
-      console.log(`[airports] base mise à jour : ${list.length} aéroports avec fréquences`);
-    } catch (err) {
-      console.error('[airports]', err.message);
-      store.update('airports', { error: `Base des fréquences injoignable (${err.message})`, loading: false });
-    }
+    if (cached && Date.now() - cached.at < TTL) return; // base encore fraîche
+    const list = await buildAll();
+    const at = Date.now();
+    writeJson(file, { at, list });
+    cached = { at, list };
+    store.update('airports', { list: nearby(list, lat, lon), updatedAt: at, loading: false });
+    console.log(`[airports] base mise à jour : ${list.length} aéroports avec fréquences`);
   };
-
-  if (!cached || Date.now() - cached.at > TTL) refresh();
-  store.every(refresh, TTL);
+  // Vérifiée chaque jour, retéléchargée chaque semaine ; nouvel essai rapide en cas d'échec.
+  periodic(store, { key: 'airports', name: 'db', everyMs: 24 * 3600_000, tag: 'airports', run: refresh });
 }

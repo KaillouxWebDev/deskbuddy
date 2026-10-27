@@ -79,7 +79,7 @@ export default function System({ state, settings, send, mode }) {
         </div>
 
         <div className="setting">
-          <span className="label">LUMINOSITÉ{screen.writable === false && screen.backlight ? ' · non pilotable (conteneur non privilégié)' : !screen.backlight ? ' · écran non détecté' : ''}</span>
+          <span className="label">LUMINOSITÉ{!screen.backlight ? ' · écran non détecté ou service hôte absent' : ''}</span>
           <div className="brightness">
             <button type="button" className="square-btn" aria-label="Baisser la luminosité" onClick={() => set({ brightness: settings.brightness - 10 })}>−</button>
             <div className="bar"><div style={{ width: `${settings.brightness}%` }} /></div>

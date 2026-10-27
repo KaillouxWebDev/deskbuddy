@@ -87,6 +87,7 @@ export default function App() {
         setTab={setTab}
         date={date}
         connected={connected}
+        online={state.net?.online !== false}
         printerAlert={Boolean(alert)}
         satInView={satInView}
         wxLevel={wxLevel}

@@ -1,28 +1,9 @@
-import { execFile } from 'node:child_process';
+import { host } from '../lib/host.js';
 
 /*
- * Wi-Fi du Pi via NetworkManager (nmcli), pour emmener le dashboard ailleurs (vacances, partage de connexion
- * du téléphone). Le conteneur exécute le nmcli de l'hôte en entrant dans ses espaces de noms (nsenter sur le
- * PID 1) : il faut "pid: host" dans docker-compose.yml, en plus du mode privilégié déjà présent.
+ * Wi-Fi du Pi (NetworkManager), pour emmener le dashboard ailleurs (vacances, partage de connexion du
+ * téléphone). Les commandes passent par le service hôte, qui vérifie chaque paramètre.
  */
-
-const IFACE = 'wlan0';
-
-function nmcli(args, timeoutMs = 20_000) {
-  return new Promise((resolve, reject) => {
-    execFile('nsenter', ['-t', '1', '-m', '-u', '-n', '-i', '--', 'nmcli', ...args], { timeout: timeoutMs }, (err, stdout, stderr) => {
-      if (err) reject(new Error((stderr || err.message).trim().replace(/^Error: /, '')));
-      else resolve(stdout);
-    });
-  });
-}
-
-/** Lignes du mode terse de nmcli : champs séparés par ":", avec "\:" pour un deux-points littéral. */
-const terse = (out) =>
-  out
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => line.split(/(?<!\\):/).map((f) => f.replace(/\\:/g, ':').replace(/\\\\/g, '\\')));
 
 export function startWifi(store) {
   let busy = false;
@@ -30,13 +11,7 @@ export function startWifi(store) {
 
   const status = async () => {
     try {
-      const [dev, conns] = await Promise.all([
-        nmcli(['-t', '-f', 'DEVICE,TYPE,STATE,CONNECTION', 'device']),
-        nmcli(['-t', '-f', 'NAME,TYPE', 'connection', 'show'])
-      ]);
-      const wl = terse(dev).find(([d, type]) => d === IFACE || type === 'wifi');
-      const saved = terse(conns).filter(([, t]) => t === '802-11-wireless').map(([n]) => n);
-      store.update('wifi', { available: Boolean(wl), current: wl && wl[2] === 'connected' ? wl[3] : null, saved, error: null });
+      store.update('wifi', { ...(await host('wifi.status')), error: null });
     } catch (err) {
       store.update('wifi', { available: false, error: err.message });
     }
@@ -47,16 +22,7 @@ export function startWifi(store) {
     busy = true;
     store.update('wifi', { scanning: true });
     try {
-      const out = await nmcli(['-t', '-f', 'IN-USE,SSID,SIGNAL,SECURITY', 'device', 'wifi', 'list', '--rescan', 'yes'], 30_000);
-      const best = new Map();
-      for (const [inUse, ssid, signal, security] of terse(out)) {
-        if (!ssid || !ssid.trim()) continue; // réseau masqué
-        const n = { ssid, signal: Number(signal) || 0, secure: Boolean(security && security !== '--'), active: inUse === '*' };
-        const prev = best.get(ssid);
-        if (!prev || n.signal > prev.signal || n.active) best.set(ssid, { ...n, active: n.active || prev?.active });
-      }
-      const networks = [...best.values()].sort((a, b) => b.active - a.active || b.signal - a.signal);
-      store.update('wifi', { networks, scanning: false, scannedAt: Date.now() });
+      store.update('wifi', { networks: await host('wifi.scan'), scanning: false, scannedAt: Date.now() });
     } catch (err) {
       store.update('wifi', { scanning: false, error: err.message });
     } finally {
@@ -70,21 +36,12 @@ export function startWifi(store) {
   store.register('wifi:connect', async ({ ssid, password }) => {
     if (typeof ssid !== 'string' || !ssid) return;
     store.update('wifi', { connecting: ssid, error: null });
-    const saved = store.get('wifi')?.saved || [];
     try {
-      if (!password && saved.includes(ssid)) {
-        await nmcli(['connection', 'up', 'id', ssid], 45_000);
-      } else {
-        // Réseau déjà enregistré avec un nouveau mot de passe : on repart de zéro.
-        if (password && saved.includes(ssid)) await nmcli(['connection', 'delete', 'id', ssid]).catch(() => {});
-        await nmcli(['device', 'wifi', 'connect', ssid, ...(password ? ['password', String(password)] : []), 'ifname', IFACE], 45_000);
-      }
+      await host('wifi.connect', password ? { ssid, password: String(password) } : { ssid });
       store.toast('success', 'WI-FI CONNECTÉ', ssid);
     } catch (err) {
-      const wrongPw = /secrets were required|802-1x|password|Secrets/i.test(err.message);
+      const wrongPw = /secrets were required|802-1x|password|mot de passe/i.test(err.message);
       store.toast('warn', 'WI-FI : ÉCHEC', wrongPw ? `${ssid} · mot de passe incorrect ?` : `${ssid} · ${err.message}`, { sticky: true });
-      // Un essai raté peut laisser un profil inutilisable : on le supprime pour pouvoir retaper le mot de passe.
-      if (wrongPw && !saved.includes(ssid)) await nmcli(['connection', 'delete', 'id', ssid]).catch(() => {});
     } finally {
       store.update('wifi', { connecting: null });
       status();
@@ -94,7 +51,7 @@ export function startWifi(store) {
   store.register('wifi:forget', async ({ ssid }) => {
     if (typeof ssid !== 'string' || !ssid) return;
     try {
-      await nmcli(['connection', 'delete', 'id', ssid]);
+      await host('wifi.forget', { ssid });
       store.toast('info', 'WI-FI', `${ssid} oublié`);
     } catch (err) {
       store.toast('warn', 'WI-FI', err.message);

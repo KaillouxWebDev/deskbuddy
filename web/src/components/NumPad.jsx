@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CloseIcon } from './Toasts.jsx';
 
 /*
  * Saisie de la position au pavé numérique : latitude et longitude en degrés décimaux.
@@ -41,10 +42,17 @@ export default function NumPad({ home, onOk, onHome, onCancel }) {
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
-      <div className="info-card numpad-card" role="dialog" aria-label="Position du dashboard" onClick={(e) => e.stopPropagation()}>
+      <div className="info-card numpad-card" role="dialog" aria-labelledby="np-title" onClick={(e) => e.stopPropagation()}>
+        <div className="stock-head np-head">
+          <div>
+            <h1 id="np-title" className="callsign">POSITION</h1>
+            <div className="small soft">Centre du radar, de la météo et des passages de satellites.</div>
+          </div>
+          <button type="button" className="square-btn" aria-label="Fermer" onClick={onCancel}>
+            <CloseIcon size={16} />
+          </button>
+        </div>
         <div className="numpad-left">
-          <span className="caption">POSITION</span>
-          <span className="small soft">Centre du radar, de la météo et des passages de satellites.</span>
           {['lat', 'lon'].map((f) => (
             <button key={f} type="button" className={`np-field${field === f ? ' is-on' : ''}${vals[f] && !valid(f, vals[f]) ? ' is-bad' : ''}`} onClick={() => pick(f)}>
               <span className="label">{f === 'lat' ? 'LATITUDE · N+ / S−' : 'LONGITUDE · E+ / O−'}</span>

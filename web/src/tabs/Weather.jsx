@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Segmented from '../components/Segmented.jsx';
+import { Empty, Stale } from '../components/Status.jsx';
 import WxIcon from '../components/WxIcon.jsx';
 import { aqiLevel, dir8, pollenLevel, wxLabel } from '../lib/wx.js';
 import { hhmm, int } from '../lib/format.js';
-
-/** « nouvel essai à 16:42 » quand une source a échoué. */
-const retry = (at) => (at ? ` · nouvel essai à ${new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '');
 
 const RANGES = [30, 60, 120, 200];
 const R = 180; // anneau extérieur = portée choisie
@@ -149,11 +147,12 @@ function WeatherMap({ home, towns, range }) {
 
 function Now({ w }) {
   const f = w.forecast;
-  if (!f) return <p className="empty">{w.forecastError ? `Prévisions indisponibles (${w.forecastError})${retry(w.forecastRetryAt)}` : 'Chargement de la météo…'}</p>;
+  if (!f) return <Empty loading="Chargement de la météo…" failed="Météo indisponible" error={w.forecastError} retryAt={w.forecastRetryAt} />;
   const c = f.current;
   const today = f.daily[0];
   return (
     <div className="card wx-now">
+      <Stale updatedAt={f.at} error={w.forecastError} retryAt={w.forecastRetryAt} />
       <div className="wx-now-head">
         <WxIcon code={c.code} day={c.day} size={52} />
         <div>
@@ -184,9 +183,10 @@ function Now({ w }) {
 
 function Forecast({ w }) {
   const f = w.forecast;
-  if (!f) return <p className="empty">{w.forecastError ? `Prévisions indisponibles (${w.forecastError})${retry(w.forecastRetryAt)}` : 'Chargement…'}</p>;
+  if (!f) return <Empty loading="Chargement des prévisions…" failed="Prévisions indisponibles" error={w.forecastError} retryAt={w.forecastRetryAt} />;
   return (
     <div className="wx-forecast">
+      <Stale updatedAt={f.at} error={w.forecastError} retryAt={w.forecastRetryAt} />
       <div className="card wx-hours">
         {f.hourly.map((h) => (
           <div key={h.at} className="wx-hour">
@@ -216,10 +216,11 @@ function Forecast({ w }) {
 
 function Air({ w }) {
   const a = w.air;
-  if (!a) return <p className="empty">{w.airError ? `Qualité de l'air indisponible (${w.airError})${retry(w.airRetryAt)}` : 'Chargement…'}</p>;
+  if (!a) return <Empty loading="Chargement de la qualité de l'air…" failed="Qualité de l'air indisponible" error={w.airError} retryAt={w.airRetryAt} />;
   const lvl = aqiLevel(a.aqi);
   return (
     <div className="wx-forecast">
+      <Stale updatedAt={a.at} error={w.airError} retryAt={w.airRetryAt} />
       <div className="card">
         <div className="card-head">
           <span className="caption">QUALITÉ DE L'AIR</span>

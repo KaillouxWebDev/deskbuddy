@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { DEBUG } from '../lib/fsx.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { Writable } from 'node:stream';
@@ -7,7 +8,7 @@ import { Client } from 'basic-ftp';
 /*
  * Lit le fichier de l'impression en cours sur l'A1 (FTPS implicite, port 990, mêmes identifiants que MQTT)
  * pour récupérer ce que le slicer a calculé : poids de filament par couleur et durée estimée.
- * Tout est en lecture seule. Chaque tentative est notée dans data/printfile-debug.log pour pouvoir
+ * Tout est en lecture seule. Avec DEBUG=1 dans .env, chaque tentative est notée dans data/printfile-debug.log pour pouvoir
  * ajuster les chemins si l'A1 range ses fichiers ailleurs.
  */
 
@@ -111,10 +112,14 @@ export async function fetchPrintInfo({ host, accessCode, subtask, gcodeFile, dat
     return null;
   } finally {
     client.close();
-    try {
-      fs.appendFileSync(logFile, `${lines.join('\n')}\n`);
-    } catch {
-      /* journal facultatif */
+    // Détail complet seulement avec DEBUG=1 ; les erreurs vont toujours dans les logs Docker (bornés).
+    if (lines.some((l) => l.includes(' erreur : '))) console.error(`[printfile] ${lines.filter((l) => l.includes(' erreur : ')).join(' | ')}`);
+    if (DEBUG) {
+      try {
+        fs.appendFileSync(logFile, `${lines.join('\n')}\n`);
+      } catch {
+        /* journal facultatif */
+      }
     }
   }
 }

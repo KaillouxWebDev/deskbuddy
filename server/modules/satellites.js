@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { periodic } from '../lib/task.js';
+import { writeJson } from '../lib/fsx.js';
 import path from 'node:path';
 import { degreesToRadians, ecfToLookAngles, eciToEcf, gstime, propagate, radiansToDegrees, twoline2satrec } from 'satellite.js';
 
@@ -269,7 +271,8 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
       }
     }
     passes.sort((a, b) => a.aos - b.aos);
-    store.set('satPasses', { passes, updatedAt: now, tleAt: cache.at || null, error: store.get('satPasses')?.error || null });
+    const prev = store.get('satPasses') || {};
+    store.set('satPasses', { passes, updatedAt: now, tleAt: cache.at || null, tleError: prev.tleError || null, tleRetryAt: prev.tleRetryAt || null });
   };
 
   const live = () => {
@@ -335,24 +338,20 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
       }
       await new Promise((r) => setTimeout(r, 500)); // on reste poli avec Celestrak
     }
-    if (errors < SATELLITES.length) {
-      cache = next;
-      fs.writeFileSync(file, JSON.stringify(cache));
-      buildRecs();
-      computePasses();
-      store.update('satPasses', { error: null });
-    } else {
-      store.update('satPasses', { error: 'Celestrak injoignable, orbites en cache utilisées' });
-    }
+    if (errors === SATELLITES.length) throw new Error('Celestrak injoignable, orbites en cache utilisées');
+    cache = next;
+    writeJson(file, cache);
+    buildRecs();
+    computePasses();
   };
 
   buildRecs();
   if (recs.size) computePasses();
   else store.set('satPasses', { passes: [], loading: true });
-  if (Date.now() - (cache.at || 0) > TLE_TTL) refreshTle();
 
   store.every(live, 2_000);
   store.every(computePasses, 10 * 60_000);
-  store.every(() => Date.now() - cache.at > TLE_TTL && refreshTle(), 3600_000);
+  // Orbites rafraîchies toutes les 12 h (vérifié chaque heure), avec nouvel essai rapide en cas d'échec.
+  periodic(store, { key: 'satPasses', name: 'tle', everyMs: 3600_000, tag: 'satellites', run: () => (Date.now() - (cache.at || 0) > TLE_TTL ? refreshTle() : null) });
   live();
 }

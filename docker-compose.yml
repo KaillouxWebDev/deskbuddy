@@ -3,14 +3,27 @@ services:
     image: ghcr.io/kaillouxwebdev/deskbuddy:latest
     container_name: deskbuddy
     restart: unless-stopped
-    # Réseau de l'hôte : accès direct à l'imprimante sur le LAN et à l'IP du Pi.
+    # Réseau de l'hôte : accès direct à l'imprimante sur le LAN. Le serveur n'écoute que sur 127.0.0.1 (voir BIND).
     network_mode: host
-    # Nécessaire pour piloter le rétroéclairage (/sys/class/backlight) : veille et luminosité.
-    privileged: true
-    # Espace de processus de l'hôte : réglage du Wi-Fi depuis l'écran (nmcli de l'hôte via nsenter).
-    pid: host
+    # Aucun privilège : le conteneur tourne sous ton utilisateur, sans capacités, système de fichiers en lecture seule.
+    # Écran, Wi-Fi et fuseau horaire passent par le service hôte (scripts/hostd.py) via son socket.
+    user: "${DESKBUDDY_UID:-1000}:${DESKBUDDY_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     env_file: .env
     environment:
       TZ: Europe/Paris
     volumes:
       - ./data:/data
+      - /run/deskbuddy:/run/deskbuddy
+    # Journaux bornés (15 Mo max) pour ne pas remplir la carte SD.
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"

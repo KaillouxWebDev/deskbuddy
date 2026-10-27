@@ -25,7 +25,7 @@ export function GearIcon() {
   );
 }
 
-export default function Header({ tabs, tab, setTab, date, connected, printerAlert, satInView, wxLevel, onSleep, settingsOpen, onSettings }) {
+export default function Header({ tabs, tab, setTab, date, connected, online, printerAlert, satInView, wxLevel, onSleep, settingsOpen, onSettings }) {
   return (
     <header className="header">
       <nav className="tabs" aria-label="Onglets">
@@ -45,9 +45,10 @@ export default function Header({ tabs, tab, setTab, date, connected, printerAler
         ))}
       </nav>
       <div className="header-right">
-        <span className={`live${connected ? '' : ' is-off'}`}>
-          <span className={`dot${connected ? ' pulse' : ''}`} />
-          {connected ? 'LIVE' : 'HORS LIGNE'}
+        {/* LIVE : tout va bien · SANS INTERNET : le Pi tourne mais rien ne se met à jour · DÉCONNECTÉ : l'écran ne joint plus le serveur */}
+        <span className={`live${!connected ? ' is-off' : !online ? ' is-offline' : ''}`}>
+          <span className={`dot${connected && online ? ' pulse' : ''}`} />
+          {!connected ? 'DÉCONNECTÉ' : !online ? 'SANS INTERNET' : 'LIVE'}
         </span>
         <span className="header-time">{hhmm(date)}</span>
         <div className="header-actions">

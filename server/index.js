@@ -15,6 +15,7 @@ import { startWeather } from './modules/weather.js';
 import { startSpace } from './modules/space.js';
 import { startLocation } from './modules/location.js';
 import { startWifi } from './modules/wifi.js';
+import { startNet } from './modules/net.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../dist');
@@ -33,6 +34,7 @@ store.set('meta', {
 
 startSettings(store, { dataDir: DATA_DIR });
 startSystem(store, { dataDir: DATA_DIR });
+startNet(store);
 startWifi(store);
 
 // Modules qui dépendent de la position : relancés proprement à chaque changement de lieu.
@@ -41,6 +43,7 @@ let geo = null;
 startLocation(store, {
   home: { lat: parseFloat(process.env.HOME_LAT), lon: parseFloat(process.env.HOME_LON) },
   homeArea: process.env.WEATHER_AREA || 'Rhône',
+  homeTz: process.env.TZ || 'Europe/Paris',
   dataDir: DATA_DIR,
   onChange(loc) {
     geo?.stop();
@@ -60,7 +63,7 @@ startPrinter(store, {
   mock: process.env.MOCK_PRINTER === '1',
   dataDir: DATA_DIR
 });
-startTimers(store);
+startTimers(store, { dataDir: DATA_DIR });
 
 /* ---------- Fichiers statiques (front buildé) ---------- */
 
@@ -83,8 +86,16 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ ok: true, ...store.get('meta') }));
   }
 
-  let file = path.normalize(path.join(DIST, decodeURIComponent(url.pathname)));
-  if (!file.startsWith(DIST)) {
+  // Adresse mal formée (%E0%A4%A...) : refusée proprement au lieu de faire planter le serveur.
+  let pathname;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    res.writeHead(400);
+    return res.end();
+  }
+  let file = path.normalize(path.join(DIST, pathname));
+  if (file !== DIST && !file.startsWith(DIST + path.sep)) {
     res.writeHead(403);
     return res.end();
   }
@@ -112,7 +123,23 @@ const server = http.createServer(async (req, res) => {
 
 /* ---------- WebSocket ---------- */
 
-const wss = new WebSocketServer({ server, path: '/ws' });
+/*
+ * Seul l'écran du Pi (ou ton navigateur en dev) peut piloter le dashboard :
+ * - le serveur n'écoute que sur 127.0.0.1 (BIND=0.0.0.0 dans .env pour l'ouvrir au réseau, en dev) ;
+ * - une page web tierce ne peut pas s'y connecter (contrôle de l'origine) ;
+ * - messages limités à 16 Ko.
+ */
+const BIND = process.env.BIND || '127.0.0.1';
+const sameOrigin = (req) => {
+  const origin = req.headers.origin;
+  if (!origin) return true; // client non navigateur (tests en ligne de commande)
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+};
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024, verifyClient: ({ req }) => sameOrigin(req) });
 
 function broadcast(msg) {
   const data = JSON.stringify(msg);
@@ -142,8 +169,8 @@ wss.on('connection', (ws) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`[deskbuddy] v${store.get('meta').version} sur http://localhost:${PORT} (données : ${DATA_DIR})`);
+server.listen(PORT, BIND, () => {
+  console.log(`[deskbuddy] v${store.get('meta').version} sur http://${BIND}:${PORT} (données : ${DATA_DIR})`);
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {

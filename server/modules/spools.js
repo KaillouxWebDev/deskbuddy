@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { writeJson, writeAtomic, DEBUG } from '../lib/fsx.js';
 import path from 'node:path';
 
 /*
@@ -82,7 +83,7 @@ export function createSpools(store, { dataDir }) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       try {
-        fs.writeFileSync(file, JSON.stringify(spools, null, 2));
+        writeJson(file, spools, true);
       } catch (err) {
         console.error('[spools] écriture impossible', err.message);
       }
@@ -90,6 +91,7 @@ export function createSpools(store, { dataDir }) {
   };
 
   const debug = (slot, raw) => {
+    if (!DEBUG) return; // journal brut de l'AMS : seulement avec DEBUG=1
     const key = JSON.stringify(raw);
     if (lastRaw.get(slot) === key) return;
     lastRaw.set(slot, key);
@@ -101,7 +103,7 @@ export function createSpools(store, { dataDir }) {
         /* nouveau fichier */
       }
       lines.push(JSON.stringify({ at: new Date().toISOString(), slot, raw }));
-      fs.writeFileSync(debugFile, `${lines.slice(-DEBUG_MAX_LINES).join('\n')}\n`);
+      writeAtomic(debugFile, `${lines.slice(-DEBUG_MAX_LINES).join('\n')}\n`);
     } catch {
       /* journal facultatif */
     }

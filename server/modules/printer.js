@@ -1,5 +1,6 @@
 import mqtt from 'mqtt';
 import fs from 'node:fs';
+import { writeJson } from '../lib/fsx.js';
 import path from 'node:path';
 import { createSpools } from './spools.js';
 import { fetchPrintInfo } from './printfile.js';
@@ -170,7 +171,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
         /* premier historique */
       }
       hist.unshift({ at: Date.now(), file: j.info.file, fraction, grams: Math.round(grams), filamentCost: grams * p.perG, elecCost: elec, cost });
-      fs.writeFileSync(historyFile, JSON.stringify(hist.slice(0, 100), null, 2));
+      writeJson(historyFile, hist.slice(0, 100), true);
     } catch {
       /* historique facultatif */
     }

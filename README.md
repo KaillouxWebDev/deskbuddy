@@ -10,7 +10,8 @@ Bouton lune dans la barre du haut : coupe l'écran, un toucher le rallume. Veill
 
 ```
 Pi (Raspberry Pi OS Lite 64 bits)
-├── conteneur deskbuddy (Node 22) : port 8080, WebSocket /ws
+├── service hôte deskbuddy-hostd (root, socket /run/deskbuddy/hostd.sock) : écran, Wi-Fi, fuseau
+├── conteneur deskbuddy (Node 22, sans privilèges) : 127.0.0.1:8080, WebSocket /ws
 │   ├── modules : avions, imprimante (MQTT LAN), système, minuteurs, réglages
 │   └── sert le front React buildé
 ├── Chromium en kiosque (cage) sur l'écran → http://localhost:8080/?kiosk=1
@@ -43,10 +44,23 @@ npm run dev:server           # backend sur :8080 (lit .env)
 npm run dev:web              # front sur http://localhost:5173
 ```
 
+## Sécurité
+
+- Le conteneur tourne **sans aucun privilège** (ton utilisateur, aucune capacité Linux, système de fichiers en lecture seule).
+  Écran, Wi-Fi et fuseau horaire passent par un petit service hôte (`scripts/hostd.py`, root) qui n'accepte qu'une liste
+  fermée de commandes vérifiées, sur un socket Unix réservé à ton groupe.
+- Le dashboard n'écoute que sur `127.0.0.1` et refuse les connexions venant d'autres sites (`BIND` dans `.env` pour le dev).
+- Les actions GitHub sont figées par empreinte de commit ; Dependabot propose les mises à jour.
+- `./scripts/harden.sh` (une fois, en SSH) : SSH par clé uniquement et pare-feu ufw. En voyage, `./scripts/harden.sh --allow-here`
+  autorise SSH depuis le réseau où tu es.
+- Point d'attention : tout ce qui arrive sur `main` est déployé sur le Pi en 5 min. Protège ton compte GitHub (2FA)
+  et la branche `main`.
+
 ## Commandes utiles sur le Pi
 
 ```bash
 docker logs -f deskbuddy                       # logs du serveur
+journalctl -u deskbuddy-hostd -f               # logs du service hôte (écran, Wi-Fi, fuseau)
 systemctl list-timers deskbuddy-update.timer   # prochaine vérification de mise à jour
 ./scripts/update.sh                            # forcer une mise à jour
 ```
