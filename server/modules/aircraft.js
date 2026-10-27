@@ -49,31 +49,77 @@ function normalize(a, lat0, lon0) {
   };
 }
 
+/*
+ * Sources ADS-B publiques, au même format (readsb / ADSBexchange v2), essayées dans l'ordre :
+ * - adsb.fi : 1 requête/s, sans plafond journalier, usage personnel non commercial (à citer).
+ * - adsb.lol : secours uniquement, plafonné à 500 requêtes par jour et par IP.
+ * Une source qui répond 429 (trop de requêtes) est mise en pause, en respectant Retry-After si fourni.
+ */
+const SOURCES = [
+  { name: 'adsb.fi', url: (lat, lon) => `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${RADIUS_NM}`, pauseUntil: 0 },
+  { name: 'adsb.lol', url: (lat, lon) => `https://api.adsb.lol/v2/point/${lat}/${lon}/${RADIUS_NM}`, pauseUntil: 0 }
+];
+const STALE_MS = 60_000; // on garde les derniers avions affichés une minute avant de signaler un problème
+
+async function fetchFrom(source, lat, lon) {
+  const res = await fetch(source.url(lat, lon), {
+    headers: { 'user-agent': 'deskbuddy (dashboard de bureau personnel)' },
+    signal: AbortSignal.timeout(10_000)
+  });
+  if (res.status === 429) {
+    const retry = Number(res.headers.get('retry-after'));
+    source.pauseUntil = Date.now() + (Number.isFinite(retry) && retry > 0 ? retry * 1000 : 10 * 60_000);
+    throw new Error('HTTP 429');
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  return json.ac || json.aircraft || [];
+}
+
 export function startAircraft(store, { lat, lon, pollMs }) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     store.set('aircraft', { list: [], updatedAt: null, error: 'Renseigne HOME_LAT et HOME_LON dans le fichier .env' });
     return;
   }
-  store.set('aircraft', { list: [], updatedAt: null, error: null });
+  store.set('aircraft', { list: [], updatedAt: null, error: null, source: null });
 
+  let busy = false;
   const tick = async () => {
+    // Écran en veille : personne ne regarde, on n'interroge pas (on reprend dès le réveil).
+    if (busy || store.get('screen')?.asleep) return;
+    busy = true;
+    const errors = [];
     try {
-      const res = await fetch(`https://api.adsb.lol/v2/point/${lat}/${lon}/${RADIUS_NM}`, {
-        headers: { 'user-agent': 'deskbuddy/0.1 (dashboard de bureau)' },
-        signal: AbortSignal.timeout(10_000)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const list = (json.ac || [])
-        .filter((a) => Number.isFinite(a.lat) && Number.isFinite(a.lon))
-        .map((a) => normalize(a, lat, lon))
-        .sort((a, b) => a.dist - b.dist);
-      store.set('aircraft', { list, updatedAt: Date.now(), error: null });
-    } catch (err) {
-      store.update('aircraft', { error: `adsb.lol injoignable (${err.message})` });
+      for (const source of SOURCES) {
+        if (source.pauseUntil > Date.now()) {
+          errors.push(`${source.name} en pause`);
+          continue;
+        }
+        try {
+          const raw = await fetchFrom(source, lat, lon);
+          const list = raw
+            .filter((a) => Number.isFinite(a.lat) && Number.isFinite(a.lon))
+            .map((a) => normalize(a, lat, lon))
+            .sort((a, b) => a.dist - b.dist);
+          store.set('aircraft', { list, updatedAt: Date.now(), error: null, source: source.name });
+          return;
+        } catch (err) {
+          errors.push(`${source.name} : ${err.message}`);
+        }
+      }
+      const last = store.get('aircraft');
+      if (!last.updatedAt || Date.now() - last.updatedAt > STALE_MS) {
+        store.update('aircraft', { error: `Sources injoignables (${errors.join(', ')})` });
+      }
+    } finally {
+      busy = false;
     }
   };
 
   tick();
   setInterval(tick, pollMs);
+  // Rafraîchissement immédiat au réveil de l'écran.
+  store.on('patch', (key, value) => {
+    if (key === 'screen' && !value.asleep) tick();
+  });
 }

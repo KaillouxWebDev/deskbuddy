@@ -324,7 +324,10 @@ export default function Radar({ state, settings, send, now }) {
           <button type="button" className="square-btn" aria-label="Dézoomer" onClick={() => zoom(1)} disabled={range === RANGES[RANGES.length - 1]}>−</button>
           <button type="button" className="square-btn" aria-label="Zoomer" onClick={() => zoom(-1)} disabled={range === RANGES[0]}>+</button>
         </div>
-        <div className="radar-foot">{list.length} avion{list.length > 1 ? 's' : ''}</div>
+        <div className="radar-foot">
+          {list.length} avion{list.length > 1 ? 's' : ''}
+          {aircraft.source ? ` · ${aircraft.source}` : ''}
+        </div>
         <div className="layer-toggles">
           <button
             type="button"
