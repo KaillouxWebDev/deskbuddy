@@ -75,6 +75,10 @@ export default function App() {
 
   const props = { state, settings, send, now };
 
+  // Pastilles sur les onglets, visibles depuis n'importe quelle page.
+  const satInView = (state.satPasses?.passes || []).some((p) => p.maxEl >= 20 && p.aos <= now && now < p.los);
+  const wxLevel = ['rouge', 'orange', 'jaune'].find((l) => (state.weather?.warnings || []).some((w) => w.level === l)) || null;
+
   return (
     <div className="app">
       <Header
@@ -84,6 +88,8 @@ export default function App() {
         date={date}
         connected={connected}
         printerAlert={Boolean(alert)}
+        satInView={satInView}
+        wxLevel={wxLevel}
         onSleep={() => send('screen:sleep')}
         settingsOpen={tab === 'system'}
         onSettings={toggleSettings}

@@ -25,7 +25,7 @@ export function GearIcon() {
   );
 }
 
-export default function Header({ tabs, tab, setTab, date, connected, printerAlert, onSleep, settingsOpen, onSettings }) {
+export default function Header({ tabs, tab, setTab, date, connected, printerAlert, satInView, wxLevel, onSleep, settingsOpen, onSettings }) {
   return (
     <header className="header">
       <nav className="tabs" aria-label="Onglets">
@@ -39,6 +39,8 @@ export default function Header({ tabs, tab, setTab, date, connected, printerAler
           >
             {t.label}
             {t.id === 'printer' && printerAlert && <span className="dot dot-danger blink" aria-label="alerte" />}
+            {t.id === 'sky' && satInView && <span className="dot pulse" aria-label="satellite en vue" />}
+            {t.id === 'weather' && wxLevel && <span className={`dot dot-wx-${wxLevel}${wxLevel === 'jaune' ? '' : ' blink'}`} aria-label={`vigilance ${wxLevel}`} />}
           </button>
         ))}
       </nav>

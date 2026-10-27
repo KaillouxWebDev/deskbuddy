@@ -88,6 +88,9 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .header-time { font-family: var(--display); font-size: 22px; color: var(--prim); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--prim); display: inline-block; }
 .dot-danger { background: var(--danger); }
+.dot-wx-jaune { background: #f2d230; }
+.dot-wx-orange { background: #ff8a1f; }
+.dot-wx-rouge { background: #ff3b3b; }
 /* Zone tactile de 44 px, mais pastille visible plus petite pour respirer dans la barre de 48 px. */
 .icon-btn {
   width: 44px;

@@ -304,6 +304,14 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
         const main = SATELLITES.find((s) => s.id === pass.satId)?.freqs.find((f) => f.down);
         store.toast('info', `${pass.name} DANS 2 MIN`, `max ${pass.maxEl}°${main ? ` · ${main.down.toFixed(3)} MHz` : ''}`);
       }
+      // Lever : le satellite est à portée de ta radio, jusqu'à quelle heure.
+      const akey = `aos-${key}`;
+      if (pass.maxEl >= NOTIFY_EL && now.getTime() >= pass.aos && now.getTime() < pass.aos + 60_000 && !notified.has(akey)) {
+        notified.add(akey);
+        const main = SATELLITES.find((s) => s.id === pass.satId)?.freqs.find((f) => f.down);
+        const end = new Date(pass.los).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Europe/Paris' });
+        store.toast('success', `${pass.name} EN VUE`, `jusqu'à ${end} · max ${pass.maxEl}°${main ? ` · ${main.down.toFixed(3)} MHz` : ''}`);
+      }
       // ISS visible à l'œil nu : prévenir 5 minutes avant, avec la direction où regarder.
       const vkey = `vis-${key}`;
       const vdt = ((pass.visStart || 0) - now.getTime()) / 1000;

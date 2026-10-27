@@ -266,12 +266,18 @@ export function startWeather(store, { lat, lon, area, alertAreas = [area], feed 
     if (!feed) return;
     const list = await warnings(feed, alertAreas.filter(Boolean), lat, lon);
     store.update('weather', { warnings: list, warningsError: null });
+    // Une notif par vigilance (zone + phénomène + niveau), pas à chaque réémission du bulletin.
+    // Jaune : notif simple. Orange et rouge : notif qui reste affichée jusqu'à ce que tu la fermes.
     for (const w of list) {
-      if ((w.level === 'orange' || w.level === 'rouge') && !notified.has(w.id)) {
-        notified.add(w.id);
-        store.toast('warn', `VIGILANCE ${w.level.toUpperCase()}`, `${w.type} · ${w.area}`, { sticky: true });
-      }
+      const key = `${w.area}|${w.type}|${w.level}`;
+      if (notified.has(key)) continue;
+      notified.add(key);
+      const until = w.expires ? ` · jusqu'à ${new Date(w.expires).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Europe/Paris' })}` : '';
+      store.toast(w.level === 'jaune' ? 'info' : 'warn', `VIGILANCE ${w.level.toUpperCase()}`, `${w.type} · ${w.area}${until}`, { sticky: w.level !== 'jaune' });
     }
+    // Vigilance terminée : on l'oublie, pour être prévenu si elle revient plus tard.
+    const current = new Set(list.map((w) => `${w.area}|${w.type}|${w.level}`));
+    for (const k of notified) if (!current.has(k)) notified.delete(k);
   });
   const doTowns = safe('towns', async () => store.set('towns', await loadTowns(lat, lon, dataDir)));
 
