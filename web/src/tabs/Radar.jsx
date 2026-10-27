@@ -13,13 +13,22 @@ const polar = (dist, brg, range) => {
   return { x: C + k * Math.sin(rad), y: C - k * Math.cos(rad) };
 };
 
-function PlaneIcon({ track }) {
+function PlaneIcon({ track, kind }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style={{ transform: `rotate(${track ?? 0}deg)` }}>
-      <path
-        d="M12 2 L13.6 9 L21 13 L21 15 L13.6 13 L13.2 19 L15.5 20.8 L15.5 22 L12 21 L8.5 22 L8.5 20.8 L10.8 19 L10.4 13 L3 15 L3 13 L10.4 9 Z"
-        fill="currentColor"
-      />
+      {kind === 'heli' ? (
+        <>
+          {/* rotor, fuselage, poutre de queue et rotor arrière, vus de dessus */}
+          <path d="M3.5 3.5 L20.5 20.5 M20.5 3.5 L3.5 20.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          <ellipse cx="12" cy="10.5" rx="3.6" ry="5" fill="currentColor" />
+          <path d="M12 15 L12 22 M9.5 21.5 L14.5 21.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </>
+      ) : (
+        <path
+          d="M12 2 L13.6 9 L21 13 L21 15 L13.6 13 L13.2 19 L15.5 20.8 L15.5 22 L12 21 L8.5 22 L8.5 20.8 L10.8 19 L10.4 13 L3 15 L3 13 L10.4 9 Z"
+          fill="currentColor"
+        />
+      )}
     </svg>
   );
 }
@@ -177,7 +186,7 @@ export default function Radar({ state, settings, send }) {
               onClick={() => pick(a.id)}
               aria-label={`${a.callsign}, ${a.airline || 'compagnie inconnue'}, ${a.onGround ? 'au sol' : `${int(a.alt)} pieds`}`}
             >
-              <PlaneIcon track={a.track} />
+              <PlaneIcon track={a.track} kind={a.kind} />
               {(isSel || (!a.onGround && a.dist / range > 0.22)) && <span className="plane-label">{a.callsign}</span>}
             </button>
           );
@@ -216,6 +225,7 @@ export default function Radar({ state, settings, send }) {
                 <div className="subline ellipsis">
                   {sel.airline || 'Compagnie inconnue'}
                   {sel.type ? ` · ${sel.type}` : ''}
+                  {sel.kind === 'heli' ? ' · hélicoptère' : ''}
                   {sel.emergency ? ` · URGENCE ${sel.emergency.toUpperCase()}` : ''}
                 </div>
                 <FreqHint route={sel.route} airports={airports.list || []} />

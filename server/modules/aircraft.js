@@ -2,6 +2,13 @@ import { airlineFor } from './airlines.js';
 import { routeFor } from './routes.js';
 
 const NM_KM = 1.852;
+
+// Catégorie ADS-B A7 = giravion. Elle manque parfois : on complète avec les types OACI d'hélicoptères courants.
+const HELI_TYPES = new Set([
+  'EC20', 'EC25', 'EC30', 'EC35', 'EC45', 'EC55', 'EC75', 'H160', 'AS50', 'AS55', 'AS65', 'AS32', 'AS3B', 'AS35',
+  'A109', 'A119', 'A139', 'A169', 'A189', 'AW09', 'R22', 'R44', 'R66', 'B06', 'B407', 'B429', 'B412', 'BK17',
+  'S76', 'S92', 'NH90', 'TIGR', 'PUMA', 'GAZL', 'ALO2', 'ALO3', 'EXPL', 'MD52', 'MD60', 'H269', 'CABR'
+]);
 const RADIUS_NM = 60; // ~110 km : couvre la portée max du radar (100 km)
 const toRad = (d) => (d * Math.PI) / 180;
 
@@ -27,6 +34,7 @@ function normalize(a, lat0, lon0) {
     callsign: callsign || (a.r || a.hex || '').toUpperCase(),
     reg: a.r || null,
     type: a.t || null,
+    kind: a.category === 'A7' || HELI_TYPES.has(a.t) ? 'heli' : 'plane',
     airline: route?.airline || airlineFor(callsign, a.r),
     route: route ? { from: route.from, to: route.to } : null,
     alt,
