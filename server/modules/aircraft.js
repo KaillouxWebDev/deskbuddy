@@ -78,10 +78,10 @@ async function fetchFrom(source, lat, lon) {
 
 export function startAircraft(store, { lat, lon, pollMs }) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    store.set('aircraft', { list: [], updatedAt: null, error: 'Renseigne HOME_LAT et HOME_LON dans le fichier .env' });
+    store.set('aircraft', { list: [], updatedAt: null, error: 'Position inconnue : règle-la dans les réglages' });
     return;
   }
-  store.set('aircraft', { list: [], updatedAt: null, error: null, source: null });
+  store.set('aircraft', { list: [], updatedAt: null, error: null, source: null, pollMs });
 
   let busy = false;
   const tick = async () => {
@@ -101,7 +101,8 @@ export function startAircraft(store, { lat, lon, pollMs }) {
             .filter((a) => Number.isFinite(a.lat) && Number.isFinite(a.lon))
             .map((a) => normalize(a, lat, lon))
             .sort((a, b) => a.dist - b.dist);
-          store.set('aircraft', { list, updatedAt: Date.now(), error: null, source: source.name });
+          if (!store.alive) return; // position changée entre-temps
+          store.set('aircraft', { list, updatedAt: Date.now(), error: null, source: source.name, pollMs });
           return;
         } catch (err) {
           errors.push(`${source.name} : ${err.message}`);
@@ -117,7 +118,7 @@ export function startAircraft(store, { lat, lon, pollMs }) {
   };
 
   tick();
-  setInterval(tick, pollMs);
+  store.every(tick, pollMs);
   // Rafraîchissement immédiat au réveil de l'écran.
   store.on('patch', (key, value) => {
     if (key === 'screen' && !value.asleep) tick();

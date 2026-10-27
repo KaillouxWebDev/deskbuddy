@@ -343,8 +343,8 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
   else store.set('satPasses', { passes: [], loading: true });
   if (Date.now() - (cache.at || 0) > TLE_TTL) refreshTle();
 
-  setInterval(live, 2_000);
-  setInterval(computePasses, 10 * 60_000);
-  setInterval(() => Date.now() - cache.at > TLE_TTL && refreshTle(), 3600_000);
+  store.every(live, 2_000);
+  store.every(computePasses, 10 * 60_000);
+  store.every(() => Date.now() - cache.at > TLE_TTL && refreshTle(), 3600_000);
   live();
 }

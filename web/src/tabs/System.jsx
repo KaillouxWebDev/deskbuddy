@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PRIMARIES, SECONDARIES } from '../lib/theme.js';
-import { dec1, int, uptime } from '../lib/format.js';
+import NumPad from '../components/NumPad.jsx';
+import WifiModal from '../components/WifiModal.jsx';
+import { uptime } from '../lib/format.js';
 
 function Swatches({ items, value, mode, onPick }) {
   return (
@@ -33,6 +35,8 @@ function Toggle({ label, detail, on, onChange }) {
   );
 }
 
+const pct = (used, total) => (used != null && total ? Math.round((used / total) * 100) : '--');
+
 export default function System({ state, settings, send, mode }) {
   const set = (patch) => send('settings:update', patch);
   const sys = state.system || {};
@@ -40,6 +44,9 @@ export default function System({ state, settings, send, mode }) {
   const meta = state.meta || {};
   const primary = PRIMARIES.find((c) => c.id === settings.primary);
   const secondary = SECONDARIES.find((c) => c.id === settings.secondary);
+  const home = state.home;
+  const wifi = state.wifi || {};
+  const [modal, setModal] = useState(null); // 'position' | 'wifi'
 
   return (
     <div className="split">
@@ -88,14 +95,28 @@ export default function System({ state, settings, send, mode }) {
             <span className="caption">{(sys.hostname || 'deskbuddy').toUpperCase()}</span>
             <span className="small sec">v{meta.version} · {meta.commit}</span>
           </div>
-          <div className="grid2">
+          <div className="grid3 pi-stats">
             <div><div className="label">CPU</div><div className="value">{sys.cpuTemp ?? '--'}<span className="unit">°C</span></div></div>
             <div><div className="label">CHARGE</div><div className="value">{sys.load ?? '--'}<span className="unit">%</span></div></div>
-            <div><div className="label">RAM</div><div className="value">{int(sys.memory?.usedMb)}<span className="unit"> / {int(sys.memory?.totalMb)} Mo</span></div></div>
-            <div><div className="label">CARTE SD</div><div className="value">{dec1(sys.disk?.usedGb)}<span className="unit"> / {dec1(sys.disk?.totalGb)} Go</span></div></div>
+            <div><div className="label">RAM</div><div className="value">{pct(sys.memory?.usedMb, sys.memory?.totalMb)}<span className="unit">%</span></div></div>
+            <div><div className="label">CARTE SD</div><div className="value">{pct(sys.disk?.usedGb, sys.disk?.totalGb)}<span className="unit">%</span></div></div>
             <div><div className="label">IP</div><div className="value md">{sys.ip || '--'}</div></div>
             <div><div className="label">UPTIME</div><div className="value md">{uptime(sys.uptimeS)}</div></div>
           </div>
+        </div>
+        <div className="card place-card">
+          <button type="button" className="place-row" onClick={() => setModal('position')}>
+            <span className="label">LIEU</span>
+            <span className="ellipsis place-val">
+              {home ? `${home.isHome ? 'Maison' : home.label || '?'}${home.pending ? ' (nom en attente de réseau)' : ''}` : 'non réglé'}
+            </span>
+            <span className="sec small">MODIFIER</span>
+          </button>
+          <button type="button" className="place-row" onClick={() => setModal('wifi')}>
+            <span className="label">WI-FI</span>
+            <span className="ellipsis place-val">{wifi.connecting ? `connexion à ${wifi.connecting}…` : wifi.current || (wifi.available === false ? 'non pilotable' : 'non connecté')}</span>
+            <span className="sec small">CHANGER</span>
+          </button>
         </div>
         <div className="card grow options">
           <span className="caption">OPTIONS</span>
@@ -108,6 +129,21 @@ export default function System({ state, settings, send, mode }) {
           <Toggle label="Balayage radar" detail="à couper si le Pi rame" on={settings.sweep} onChange={(v) => set({ sweep: v })} />
         </div>
       </section>
+      {modal === 'position' && (
+        <NumPad
+          home={home}
+          onCancel={() => setModal(null)}
+          onHome={() => {
+            send('location:home');
+            setModal(null);
+          }}
+          onOk={(pos) => {
+            send('location:set', pos);
+            setModal(null);
+          }}
+        />
+      )}
+      {modal === 'wifi' && <WifiModal wifi={wifi} send={send} onClose={() => setModal(null)} />}
     </div>
   );
 }

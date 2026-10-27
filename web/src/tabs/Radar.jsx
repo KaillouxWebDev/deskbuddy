@@ -130,6 +130,53 @@ function FreqPanel({ airports, highlight }) {
   );
 }
 
+/*
+ * Balayage façon vrai radar : un avion n'est redessiné que quand le faisceau passe sur lui, puis son écho
+ * s'estompe jusqu'au tour suivant (rémanence du phosphore). Un tour = une interrogation des données.
+ */
+const TICK_MS = 100;
+
+/** Faisceau en phase avec l'horloge (au nord à chaque multiple de la période). Le décalage n'est fixé
+ *  qu'au montage : le modifier ensuite décalerait l'animation en cours. */
+function Sweep({ period }) {
+  const [delay] = useState(() => Date.now() % period);
+  return <div className="sweep" aria-hidden="true" style={{ animationDuration: `${period}ms`, animationDelay: `-${delay}ms` }} />;
+}
+const sweepAngle = (t, period) => ((t % period) / period) * 360;
+const crossed = (from, to, brg) => (from <= to ? brg > from && brg <= to : brg > from || brg <= to);
+
+function usePhosphor(list, period, enabled) {
+  const latest = useRef(list);
+  latest.current = list;
+  const [painted, setPainted] = useState(() => new Map(list.map((a) => [a.id, { ...a, paintedAt: Date.now() }])));
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let prev = sweepAngle(Date.now(), period);
+    const id = setInterval(() => {
+      const now = Date.now();
+      const cur = sweepAngle(now, period);
+      setPainted((old) => {
+        let next = null;
+        const live = new Map(latest.current.map((a) => [a.id, a]));
+        for (const a of live.values()) {
+          if (crossed(prev, cur, a.bearing)) (next ??= new Map(old)).set(a.id, { ...a, paintedAt: now });
+        }
+        // Avion disparu : son écho n'est plus rafraîchi et s'efface au passage suivant du faisceau.
+        for (const [pid, p] of old) {
+          if (!live.has(pid) && crossed(prev, cur, p.bearing)) (next ??= new Map(old)).delete(pid);
+        }
+        return next || old;
+      });
+      prev = cur;
+    }, TICK_MS);
+    return () => clearInterval(id);
+  }, [period, enabled]);
+
+  if (!enabled) return list.map((a) => ({ ...a, paintedAt: 0 }));
+  return [...painted.values()];
+}
+
 export default function Radar({ state, settings, send, now }) {
   const [lockedId, setLockedId] = useState(null);
   const [showFreq, setShowFreq] = useState(false);
@@ -138,6 +185,8 @@ export default function Radar({ state, settings, send, now }) {
   const airports = state.airports || { list: [] };
   const range = RANGES.includes(settings.rangeKm) ? settings.rangeKm : 60;
   const list = (aircraft.list || []).filter((a) => a.dist <= range);
+  const period = aircraft.pollMs || 6000;
+  const blips = usePhosphor(aircraft.list || [], period, settings.sweep).filter((b) => b.dist <= range);
 
   /*
    * Sélection : un appareil touché reste « fixé » tant qu'il est dans la zone du radar.
@@ -200,22 +249,22 @@ export default function Radar({ state, settings, send, now }) {
             })}
           <circle cx={C} cy={C} r="4" className="radar-home" />
         </svg>
-        {settings.sweep && <div className="sweep" aria-hidden="true" />}
+        {settings.sweep && <Sweep period={period} key={period} />}
         {[1, 2, 3, 4].map((n) => (
           <span key={n} className="ring-label" style={{ top: C - 45 * n - 2 }}>
             {ring(n)}
           </span>
         ))}
 
-        {list.map((a) => {
+        {blips.map((a) => {
           const { x, y } = polar(a.dist, a.bearing, range);
           const isSel = sel && a.id === sel.id;
           return (
             <button
-              key={a.id}
+              key={`${a.id}-${a.paintedAt}`}
               type="button"
-              className={`plane${isSel ? ' is-sel' : ''}${a.emergency ? ' is-emergency' : ''}${a.onGround ? ' is-ground' : ''}`}
-              style={{ left: Math.round(x - 22), top: Math.round(y - 22) }}
+              className={`plane${isSel ? ' is-sel' : ''}${a.emergency ? ' is-emergency' : ''}${a.onGround ? ' is-ground' : ''}${a.paintedAt ? ' is-echo' : ''}`}
+              style={{ left: Math.round(x - 22), top: Math.round(y - 22), animationDuration: `${period}ms` }}
               onClick={() => pick(a.id)}
               aria-label={`${a.callsign}, ${a.airline || 'compagnie inconnue'}, ${a.onGround ? 'au sol' : `${int(a.alt)} pieds`}`}
             >

@@ -127,13 +127,27 @@ async function airQuality(lat, lon) {
 }
 
 /* ---------- Vigilances (MeteoAlarm, flux Atom France) ---------- */
-async function warnings(area) {
-  const res = await fetch('https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-france', { headers: UA, signal: AbortSignal.timeout(20_000) });
+/** Le point est-il dans le polygone CAP « lat,lon lat,lon ... » ? (lancer de rayon) */
+function inPolygon(poly, lat, lon) {
+  const pts = poly.trim().split(/\s+/).map((p) => p.split(',').map(Number));
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [yi, xi] = pts[i];
+    const [yj, xj] = pts[j];
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** Vigilances qui concernent ta position : par nom de zone, ou par contour quand le flux le fournit. */
+export async function warnings(feed, areas, lat, lon) {
+  const res = await fetch(`https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-${feed}`, { headers: UA, signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const xml = await res.text();
   const tag = (e, name) => (e.match(new RegExp(`<${name}[^>]*>([^<]*)</${name}>`)) || [])[1]?.trim() || '';
   const now = Date.now();
-  const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const norm = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const wanted = new Set(areas.map(norm));
   return xml
     .split('<entry>')
     .slice(1)
@@ -144,13 +158,14 @@ async function warnings(area) {
       return {
         id: tag(e, 'cap:identifier'),
         area: tag(e, 'cap:areaDesc'),
+        here: [...e.matchAll(/<cap:polygon>([^<]*)<\/cap:polygon>/g)].some((m) => inPolygon(m[1], lat, lon)),
         level: LEVELS[color] || null,
         type: (EVENTS.find(([re]) => re.test(event)) || [null, event])[1],
         onset: Date.parse(tag(e, 'cap:onset')) || null,
         expires: Date.parse(tag(e, 'cap:expires')) || null
       };
     })
-    .filter((w) => w.level && norm(w.area) === norm(area) && (!w.expires || w.expires > now))
+    .filter((w) => w.level && (wanted.has(norm(w.area)) || w.here) && (!w.expires || w.expires > now))
     .sort((a, b) => ['jaune', 'orange', 'rouge'].indexOf(b.level) - ['jaune', 'orange', 'rouge'].indexOf(a.level));
 }
 
@@ -168,26 +183,33 @@ function unzipFirst(buf) {
   return method === 8 ? zlib.inflateRawSync(data) : data;
 }
 
-async function loadTowns(lat, lon, dataDir) {
-  const file = path.join(dataDir, 'towns.json');
-  const key = `v2:${lat.toFixed(2)},${lon.toFixed(2)}`; // v2 : seuil 30 000 hab. et noms français
+/** Toutes les villes de plus de 30 000 habitants du monde, gardées en local (~500 Ko) : changer de position ne retélécharge rien. */
+async function allTowns(dataDir) {
+  const file = path.join(dataDir, 'towns-all.json');
   try {
     const cached = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (cached.key === key && Date.now() - cached.at < 30 * 86400_000) return cached.towns;
+    if (Date.now() - cached.at < 90 * 86400_000) return cached.towns;
   } catch {
     /* pas de cache */
   }
   const res = await fetch('https://download.geonames.org/export/dump/cities15000.zip', { headers: UA, signal: AbortSignal.timeout(120_000) });
   if (!res.ok) throw new Error(`GeoNames HTTP ${res.status}`);
   const txt = unzipFirst(Buffer.from(await res.arrayBuffer())).toString('utf8');
-  const near = [];
+  const towns = [];
   for (const line of txt.split('\n')) {
     const f = line.split('\t');
-    if (f.length < 15) continue;
-    const tlat = Number(f[4]);
-    const tlon = Number(f[5]);
+    if (f.length < 15 || Number(f[14]) < 30000) continue;
+    towns.push([FR_NAMES[f[1]] || f[1], Number(f[4]), Number(f[5]), Number(f[14])]);
+  }
+  fs.writeFileSync(file, JSON.stringify({ at: Date.now(), towns }));
+  return towns;
+}
+
+async function loadTowns(lat, lon, dataDir) {
+  const near = [];
+  for (const [name, tlat, tlon, pop] of await allTowns(dataDir)) {
     const d = distKm(lat, lon, tlat, tlon);
-    if (d <= 220 && Number(f[14]) >= 30000) near.push({ name: FR_NAMES[f[1]] || f[1], pop: Number(f[14]) || 0, dist: Math.round(d * 10) / 10, bearing: Math.round(bearing(lat, lon, tlat, tlon)), lat: tlat, lon: tlon });
+    if (d <= 220) near.push({ name, pop, dist: Math.round(d * 10) / 10, bearing: Math.round(bearing(lat, lon, tlat, tlon)), lat: tlat, lon: tlon });
   }
   // Les plus peuplées d'abord, en évitant les étiquettes trop serrées (banlieue proche).
   near.sort((a, b) => b.pop - a.pop);
@@ -196,16 +218,19 @@ async function loadTowns(lat, lon, dataDir) {
     if (towns.every((k) => distKm(k.lat, k.lon, t.lat, t.lon) > Math.max(8, t.dist * 0.18))) towns.push(t);
     if (towns.length >= 40) break;
   }
-  fs.writeFileSync(file, JSON.stringify({ key, at: Date.now(), towns }));
   return towns;
 }
 
-export function startWeather(store, { lat, lon, area, dataDir }) {
+/**
+ * area : nom affiché (département) ; alertAreas : noms de zones MeteoAlarm acceptés ; feed : pays du flux
+ * (france, spain, italy...). Sans feed, pas de vigilances (pays non couvert).
+ */
+export function startWeather(store, { lat, lon, area, alertAreas = [area], feed = 'france', dataDir }) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    store.set('weather', { error: 'Coordonnées HOME_LAT / HOME_LON manquantes' });
+    store.set('weather', { error: 'Position inconnue' });
     return;
   }
-  store.set('weather', { area, warnings: [] });
+  store.set('weather', { area, warnings: [], alertsAvailable: Boolean(feed) });
   const notified = new Set();
 
   const safe = (name, fn) => async () => {
@@ -220,13 +245,13 @@ export function startWeather(store, { lat, lon, area, dataDir }) {
   const doForecast = safe('forecast', async () => store.update('weather', { forecast: { ...(await forecast(lat, lon)), at: Date.now() }, forecastError: null }));
   const doAir = safe('air', async () => store.update('weather', { air: { ...(await airQuality(lat, lon)), at: Date.now() }, airError: null }));
   const doWarnings = safe('warnings', async () => {
-    if (!area) return;
-    const list = await warnings(area);
+    if (!feed) return;
+    const list = await warnings(feed, alertAreas.filter(Boolean), lat, lon);
     store.update('weather', { warnings: list, warningsError: null });
     for (const w of list) {
       if ((w.level === 'orange' || w.level === 'rouge') && !notified.has(w.id)) {
         notified.add(w.id);
-        store.toast('warn', `VIGILANCE ${w.level.toUpperCase()}`, `${w.type} · ${area}`, { sticky: true });
+        store.toast('warn', `VIGILANCE ${w.level.toUpperCase()}`, `${w.type} · ${w.area}`, { sticky: true });
       }
     }
   });
@@ -236,8 +261,8 @@ export function startWeather(store, { lat, lon, area, dataDir }) {
   doAir();
   doWarnings();
   doTowns();
-  setInterval(doForecast, 15 * 60_000);
-  setInterval(doAir, 30 * 60_000);
-  setInterval(doWarnings, 10 * 60_000);
-  setInterval(doTowns, 24 * 3600_000);
+  store.every(doForecast, 15 * 60_000);
+  store.every(doAir, 30 * 60_000);
+  store.every(doWarnings, 10 * 60_000);
+  store.every(doTowns, 24 * 3600_000);
 }

@@ -13,6 +13,8 @@ import { startAirports } from './modules/airports.js';
 import { startSatellites } from './modules/satellites.js';
 import { startWeather } from './modules/weather.js';
 import { startSpace } from './modules/space.js';
+import { startLocation } from './modules/location.js';
+import { startWifi } from './modules/wifi.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../dist');
@@ -31,12 +33,25 @@ store.set('meta', {
 
 startSettings(store, { dataDir: DATA_DIR });
 startSystem(store, { dataDir: DATA_DIR });
-const HOME = { lat: parseFloat(process.env.HOME_LAT), lon: parseFloat(process.env.HOME_LON) };
-if (Number.isFinite(HOME.lat) && Number.isFinite(HOME.lon)) store.set('home', HOME);
-startAircraft(store, { ...HOME, pollMs: Math.max(5, Number(process.env.AIRCRAFT_POLL_S || 8)) * 1000 });
-startAirports(store, { ...HOME, dataDir: DATA_DIR });
-startSatellites(store, { ...HOME, dataDir: DATA_DIR });
-startWeather(store, { ...HOME, area: process.env.WEATHER_AREA || 'Rhône', dataDir: DATA_DIR });
+startWifi(store);
+
+// Modules qui dépendent de la position : relancés proprement à chaque changement de lieu.
+const POLL_MS = Math.max(5, Number(process.env.AIRCRAFT_POLL_S || 6)) * 1000;
+let geo = null;
+startLocation(store, {
+  home: { lat: parseFloat(process.env.HOME_LAT), lon: parseFloat(process.env.HOME_LON) },
+  homeArea: process.env.WEATHER_AREA || 'Rhône',
+  dataDir: DATA_DIR,
+  onChange(loc) {
+    geo?.stop();
+    geo = store.scope();
+    const at = loc ? { lat: loc.lat, lon: loc.lon } : { lat: NaN, lon: NaN };
+    startAircraft(geo, { ...at, pollMs: POLL_MS });
+    startAirports(geo, { ...at, dataDir: DATA_DIR });
+    startSatellites(geo, { ...at, dataDir: DATA_DIR });
+    startWeather(geo, { ...at, area: loc?.area || loc?.label, alertAreas: loc?.alertAreas || [], feed: loc?.feed, dataDir: DATA_DIR });
+  }
+});
 startSpace(store);
 startPrinter(store, {
   host: process.env.BAMBU_HOST,

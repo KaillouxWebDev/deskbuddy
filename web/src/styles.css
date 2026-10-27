@@ -228,7 +228,12 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .plane svg { position: absolute; left: 11px; top: 11px; }
 .plane-label { position: absolute; left: 36px; top: 4px; font-family: var(--display); font-size: 10px; letter-spacing: 0.5px; white-space: nowrap; }
 .plane.is-ground { opacity: 0.45; }
-.plane.is-sel { color: var(--sec); z-index: 2; opacity: 1; }
+/* Écho radar : vif au passage du faisceau, puis s'estompe jusqu'au tour suivant. */
+.plane.is-echo { animation: echo linear forwards; }
+.plane.is-echo.is-ground { animation-name: echo-ground; }
+@keyframes echo { 0% { opacity: 1; filter: drop-shadow(0 0 4px var(--prim)); } 15% { opacity: 1; filter: none; } 100% { opacity: 0.4; } }
+@keyframes echo-ground { 0% { opacity: 0.7; } 100% { opacity: 0.2; } }
+.plane.is-sel { color: var(--sec); z-index: 2; opacity: 1; animation: none; }
 .plane.is-emergency { color: var(--danger); }
 .range-label { position: absolute; left: 0; top: 0; font-family: var(--display); font-size: 22px; }
 .zoom { position: absolute; right: 0; top: 0; display: flex; gap: 8px; }
@@ -565,3 +570,59 @@ button.spool-top { background: transparent; border: 0; padding: 0; color: inheri
 .grams-val { text-align: center; font-family: var(--display); font-size: 18px; color: var(--sec); }
 .spool-btn.is-primary { background: var(--prim); color: var(--bg); border-color: var(--prim); }
 .stock-grid { align-items: start; }
+
+/* ---------- Lieu et Wi-Fi (réglages) ---------- */
+.place-card { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; padding-bottom: 6px; }
+.place-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 40px; background: transparent; border: 0; color: inherit; text-align: left; cursor: pointer; padding: 0; font-family: var(--body); }
+.place-row + .place-row { border-top: 1px solid var(--line); }
+.place-val { font-family: var(--display); font-size: 15px; }
+
+/* ---------- Clavier tactile ---------- */
+.kb-backdrop { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; flex-direction: column; padding: 8px 8px 8px; gap: 8px; }
+.kb-head { display: flex; align-items: center; gap: 10px; min-height: 64px; }
+.kb-title { display: flex; flex-direction: column; width: 220px; flex-shrink: 0; min-width: 0; }
+.kb-field { flex: 1; min-width: 0; height: 52px; border: 2px solid var(--prim); background: var(--panel); display: flex; align-items: center; padding: 0 12px; overflow: hidden; font-family: var(--display); font-size: 22px; color: var(--prim); white-space: pre; }
+.kb-value { overflow: hidden; text-overflow: clip; direction: rtl; unicode-bidi: plaintext; }
+.kb-value.is-secret { letter-spacing: 2px; }
+.kb-eye { min-width: 104px; }
+.kb { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.kb-row { flex: 1; display: flex; gap: 6px; }
+.kb-key { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--prim); font-family: var(--display); font-size: 20px; cursor: pointer; padding: 0; }
+.kb-key:active { background: var(--prim); color: var(--bg); }
+.kb-wide { flex: 1.5; font-size: 14px; letter-spacing: 1px; }
+.kb-glyph { font-size: 26px; }
+.kb-key.is-on { border-color: var(--sec); color: var(--sec); }
+.kb-key.is-caps { background: var(--sec); color: var(--bg); }
+.kb-space { flex: 5; font-size: 14px; color: var(--dim); }
+.kb-ok { background: var(--prim); color: var(--bg); border-color: var(--prim); }
+.kb-ok:disabled { opacity: 0.35; }
+
+/* ---------- Pavé numérique (position) ---------- */
+.numpad-card { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; padding: 14px 18px; }
+.numpad-left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.np-field { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px 12px; min-height: 64px; background: var(--soft); border: 1px solid var(--line); color: inherit; cursor: pointer; text-align: left; }
+.np-field.is-on { border: 2px solid var(--prim); }
+.np-field.is-bad .np-value { color: var(--danger); }
+.np-value { font-family: var(--display); font-size: 26px; color: var(--prim); }
+.np-actions { margin-top: auto; display: flex; gap: 8px; }
+.np-actions .btn { flex: 1; }
+.np-actions .btn:disabled { opacity: 0.35; }
+.numpad { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 6px; }
+.np-key { font-size: 26px; }
+.np-erase { font-size: 24px; }
+.np-next { font-size: 14px; letter-spacing: 1px; }
+.np-next { grid-column: span 2; }
+
+/* ---------- Wi-Fi ---------- */
+.wifi-card { display: flex; flex-direction: column; padding: 14px 18px; gap: 10px; }
+.wifi-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.wifi-row { border: 1px solid var(--line); background: var(--soft); flex-shrink: 0; }
+.wifi-row.is-active { border-color: var(--prim); }
+.wifi-main { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: transparent; border: 0; color: var(--prim); cursor: pointer; text-align: left; }
+.wifi-ssid { flex: 1; font-family: var(--display); font-size: 17px; }
+.wifi-menu { display: flex; gap: 6px; padding: 0 10px 10px; }
+.wifi-menu .spool-btn { flex: 1; }
+
+.pi-stats { row-gap: 8px; }
+.pi-stats .value { font-size: 20px; }
+.pi-stats .value.md { font-size: 15px; }

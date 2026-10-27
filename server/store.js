@@ -38,7 +38,45 @@ export function createStore() {
       if (!fn) throw new Error(`Action inconnue : ${name}`);
       return fn(payload || {});
     },
-    on: (name, fn) => bus.on(name, fn)
+    on: (name, fn) => bus.on(name, fn),
+    off: (name, fn) => bus.off(name, fn),
+
+    /**
+     * Vue « jetable » du store pour les modules qui dépendent de la position (avions, météo...).
+     * stop() coupe leurs minuteries et ignore les réponses réseau qui arriveraient après coup,
+     * pour qu'un changement de position reparte proprement sans redémarrer le serveur.
+     */
+    scope() {
+      let alive = true;
+      const timers = [];
+      const subs = [];
+      return {
+        state,
+        get: store.get,
+        set: (k, v) => alive && store.set(k, v),
+        update: (k, p) => alive && store.update(k, p),
+        event: (e) => alive && store.event(e),
+        toast: (...a) => alive && store.toast(...a),
+        register: store.register,
+        dispatch: store.dispatch,
+        on(name, fn) {
+          bus.on(name, fn);
+          subs.push([name, fn]);
+        },
+        off: store.off,
+        every(fn, ms) {
+          timers.push(setInterval(fn, ms));
+        },
+        get alive() {
+          return alive;
+        },
+        stop() {
+          alive = false;
+          timers.forEach(clearInterval);
+          subs.forEach(([n, fn]) => bus.off(n, fn));
+        }
+      };
+    }
   };
   return store;
 }

@@ -4,7 +4,8 @@ import path from 'node:path';
 /*
  * Aéroports proches et leurs fréquences radio, depuis OurAirports (données libres, mises à jour par la communauté).
  * À recouper avec les cartes VAC officielles du SIA : une fréquence peut changer avant que la base soit corrigée.
- * Le téléchargement (~14 Mo) n'est fait qu'une fois par semaine, le résultat filtré est mis en cache dans /data.
+ * Le téléchargement (~14 Mo) n'est fait qu'une fois par semaine, une version compacte (aéroports avec fréquences, monde entier) est gardée dans /data :
+ * changer de position ne retélécharge rien.
  */
 
 const BASE = 'https://davidmegginson.github.io/ourairports-data';
@@ -65,75 +66,72 @@ async function download(name) {
   return res.text();
 }
 
-async function build(lat, lon) {
-  const airportsCsv = await download('airports.csv');
-  const near = new Map();
-  for (const a of rows(airportsCsv)) {
+/** Base mondiale compacte : aéroports ayant au moins une fréquence VHF aviation (~1 Mo au lieu de 14). */
+async function buildAll() {
+  const all = new Map();
+  for (const a of rows(await download('airports.csv'))) {
     if (!TYPES.has(a.type)) continue;
-    const alat = Number(a.latitude_deg);
-    const alon = Number(a.longitude_deg);
-    const d = distKm(lat, lon, alat, alon);
-    if (d <= MAX_KM) {
-      near.set(a.ident, {
-        icao: a.icao_code || a.gps_code || a.ident,
-        iata: a.iata_code || null,
-        name: a.name,
-        city: a.municipality || null,
-        lat: alat,
-        lon: alon,
-        dist: Math.round(d * 10) / 10,
-        bearing: Math.round(bearing(lat, lon, alat, alon)),
-        freqs: []
-      });
-    }
+    all.set(a.ident, {
+      icao: a.icao_code || a.gps_code || a.ident,
+      iata: a.iata_code || null,
+      name: a.name,
+      city: a.municipality || null,
+      lat: Number(a.latitude_deg),
+      lon: Number(a.longitude_deg),
+      freqs: []
+    });
   }
-
-  const freqCsv = await download('airport-frequencies.csv');
-  for (const f of rows(freqCsv)) {
-    const ap = near.get(f.airport_ident);
+  for (const f of rows(await download('airport-frequencies.csv'))) {
+    const ap = all.get(f.airport_ident);
     const mhz = Number(f.frequency_mhz);
     if (!ap || !Number.isFinite(mhz) || mhz < 108 || mhz > 137) continue; // bande aviation VHF uniquement
     ap.freqs.push({ type: (f.type || '').toUpperCase(), label: f.description || f.type, mhz });
   }
+  return [...all.values()].filter((a) => a.freqs.length && Number.isFinite(a.lat) && Number.isFinite(a.lon));
+}
 
+function nearby(all, lat, lon) {
   const rank = (t) => (ORDER.includes(t) ? ORDER.indexOf(t) : ORDER.length);
-  return [...near.values()]
-    .filter((a) => a.freqs.length)
-    .map((a) => ({ ...a, freqs: a.freqs.sort((x, y) => rank(x.type) - rank(y.type) || x.mhz - y.mhz) }))
+  return all
+    .map((a) => ({ ...a, dist: Math.round(distKm(lat, lon, a.lat, a.lon) * 10) / 10 }))
+    .filter((a) => a.dist <= MAX_KM)
+    .map((a) => ({
+      ...a,
+      bearing: Math.round(bearing(lat, lon, a.lat, a.lon)),
+      freqs: [...a.freqs].sort((x, y) => rank(x.type) - rank(y.type) || x.mhz - y.mhz)
+    }))
     .sort((a, b) => a.dist - b.dist)
     .slice(0, MAX_AIRPORTS);
 }
 
 export function startAirports(store, { lat, lon, dataDir }) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    store.set('airports', { list: [], error: 'Coordonnées HOME_LAT / HOME_LON manquantes' });
+    store.set('airports', { list: [], error: 'Position inconnue' });
     return;
   }
-  const file = path.join(dataDir, 'airports-near.json');
-  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-
+  const file = path.join(dataDir, 'airports-all.json');
   let cached = null;
   try {
     cached = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {
     /* pas encore de cache */
   }
-  if (cached?.key === key) store.set('airports', { list: cached.list, updatedAt: cached.at, error: null });
+  if (cached) store.set('airports', { list: nearby(cached.list, lat, lon), updatedAt: cached.at, error: null });
   else store.set('airports', { list: [], updatedAt: null, error: null, loading: true });
 
   const refresh = async () => {
     try {
-      const list = await build(lat, lon);
+      const list = await buildAll();
       const at = Date.now();
-      fs.writeFileSync(file, JSON.stringify({ key, at, list }));
-      store.set('airports', { list, updatedAt: at, error: null });
-      console.log(`[airports] ${list.length} aéroports avec fréquences dans un rayon de ${MAX_KM} km`);
+      fs.writeFileSync(file, JSON.stringify({ at, list }));
+      store.set('airports', { list: nearby(list, lat, lon), updatedAt: at, error: null });
+      console.log(`[airports] base mise à jour : ${list.length} aéroports avec fréquences`);
     } catch (err) {
       console.error('[airports]', err.message);
       store.update('airports', { error: `Base des fréquences injoignable (${err.message})`, loading: false });
     }
   };
 
-  if (!cached || cached.key !== key || Date.now() - cached.at > TTL) refresh();
-  setInterval(refresh, TTL);
+  if (!cached || Date.now() - cached.at > TTL) refresh();
+  store.every(refresh, TTL);
 }
