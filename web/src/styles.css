@@ -187,6 +187,11 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 
 /* ---------- Radar ---------- */
 .radar { width: 404px; height: 404px; flex-shrink: 0; position: relative; }
+/* L'écran officiel 7" a des pixels ~7,5 % plus larges que hauts (≈154 x 86 mm pour 800 x 480).
+   En kiosque, on resserre le radar horizontalement pour qu'il soit vraiment rond à l'œil. */
+:root { --pixel-aspect: 1; }
+.kiosk { --pixel-aspect: 0.93; }
+.radar { transform: scaleX(var(--pixel-aspect)); transform-origin: left center; margin-right: calc(404px * (var(--pixel-aspect) - 1)); }
 .radar-grid { position: absolute; inset: 0; }
 .radar-disc { fill: color-mix(in srgb, var(--prim) 4%, var(--bg)); stroke: var(--line); stroke-width: 1.5; }
 .radar-ring { fill: none; stroke: color-mix(in srgb, var(--line) 80%, var(--bg)); stroke-width: 1; }
