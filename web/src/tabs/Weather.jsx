@@ -4,6 +4,9 @@ import WxIcon from '../components/WxIcon.jsx';
 import { aqiLevel, dir8, pollenLevel, wxLabel } from '../lib/wx.js';
 import { hhmm, int } from '../lib/format.js';
 
+/** « nouvel essai à 16:42 » quand une source a échoué. */
+const retry = (at) => (at ? ` · nouvel essai à ${new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '');
+
 const RANGES = [30, 60, 120, 200];
 const R = 180; // anneau extérieur = portée choisie
 const C = 202;
@@ -146,7 +149,7 @@ function WeatherMap({ home, towns, range }) {
 
 function Now({ w }) {
   const f = w.forecast;
-  if (!f) return <p className="empty">{w.forecastError ? `Prévisions indisponibles (${w.forecastError})` : 'Chargement de la météo…'}</p>;
+  if (!f) return <p className="empty">{w.forecastError ? `Prévisions indisponibles (${w.forecastError})${retry(w.forecastRetryAt)}` : 'Chargement de la météo…'}</p>;
   const c = f.current;
   const today = f.daily[0];
   return (
@@ -181,7 +184,7 @@ function Now({ w }) {
 
 function Forecast({ w }) {
   const f = w.forecast;
-  if (!f) return <p className="empty">{w.forecastError ? `Prévisions indisponibles (${w.forecastError})` : 'Chargement…'}</p>;
+  if (!f) return <p className="empty">{w.forecastError ? `Prévisions indisponibles (${w.forecastError})${retry(w.forecastRetryAt)}` : 'Chargement…'}</p>;
   return (
     <div className="wx-forecast">
       <div className="card wx-hours">
@@ -213,7 +216,7 @@ function Forecast({ w }) {
 
 function Air({ w }) {
   const a = w.air;
-  if (!a) return <p className="empty">{w.airError ? `Qualité de l'air indisponible (${w.airError})` : 'Chargement…'}</p>;
+  if (!a) return <p className="empty">{w.airError ? `Qualité de l'air indisponible (${w.airError})${retry(w.airRetryAt)}` : 'Chargement…'}</p>;
   const lvl = aqiLevel(a.aqi);
   return (
     <div className="wx-forecast">

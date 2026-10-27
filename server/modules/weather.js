@@ -233,13 +233,31 @@ export function startWeather(store, { lat, lon, area, alertAreas = [area], feed 
   store.set('weather', { area, warnings: [], alertsAvailable: Boolean(feed) });
   const notified = new Set();
 
-  const safe = (name, fn) => async () => {
-    try {
-      await fn();
-    } catch (err) {
-      console.error(`[weather] ${name} : ${err.message}`);
-      store.update('weather', { [`${name}Error`]: err.message });
-    }
+  /*
+   * Échec réseau (Wi-Fi coupé, conteneur qui redémarre...) : on ne patiente pas jusqu'au prochain cycle
+   * normal (15 ou 30 min), on réessaie après 1, 2, 5 puis 10 min. Les dernières données restent affichées.
+   */
+  const RETRY_MIN = [1, 2, 5, 10];
+  const failures = {};
+  const retryTimers = {};
+  const safe = (name, fn) => {
+    const run = async () => {
+      clearTimeout(retryTimers[name]);
+      try {
+        await fn();
+        failures[name] = 0;
+        store.update('weather', { [`${name}RetryAt`]: null });
+      } catch (err) {
+        if (!store.alive) return;
+        console.error(`[weather] ${name} : ${err.message}`);
+        const n = (failures[name] = (failures[name] || 0) + 1);
+        const delay = RETRY_MIN[Math.min(n, RETRY_MIN.length) - 1] * 60_000;
+        retryTimers[name] = setTimeout(() => store.alive && run(), delay);
+        store.update('weather', { [`${name}Error`]: err.message, [`${name}RetryAt`]: Date.now() + delay });
+      }
+    };
+    run.failing = () => failures[name] > 0;
+    return run;
   };
 
   const doForecast = safe('forecast', async () => store.update('weather', { forecast: { ...(await forecast(lat, lon)), at: Date.now() }, forecastError: null }));
@@ -265,4 +283,13 @@ export function startWeather(store, { lat, lon, area, alertAreas = [area], feed 
   store.every(doAir, 30 * 60_000);
   store.every(doWarnings, 10 * 60_000);
   store.every(doTowns, 24 * 3600_000);
+
+  // Retour du réseau (Wi-Fi reconnecté) : on relance tout de suite ce qui avait échoué.
+  let wasOnline = Boolean(store.get('wifi')?.current);
+  store.on('patch', (key, value) => {
+    if (key !== 'wifi') return;
+    const online = Boolean(value?.current);
+    if (online && !wasOnline) for (const run of [doForecast, doAir, doWarnings, doTowns]) if (run.failing()) run();
+    wasOnline = online;
+  });
 }
