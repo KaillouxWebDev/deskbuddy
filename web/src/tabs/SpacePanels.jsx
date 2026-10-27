@@ -64,7 +64,7 @@ function countdown(ms) {
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  return d ? `T- ${d} j ${pad(h)} h ${pad(m)}` : `T- ${pad(h)}:${pad(m)}:${pad(s % 60)}`;
+  return `T- ${d ? `${d} j ` : ''}${pad(h)}:${pad(m)}:${pad(s % 60)}`;
 }
 
 const STATUS = { Go: 'confirmé', TBD: 'date à confirmer', TBC: 'à confirmer', Hold: 'suspendu', 'In Flight': 'en vol' };
