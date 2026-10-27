@@ -60,12 +60,12 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
   align-items: stretch;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  padding-right: 10px;
+  padding-right: 8px;
 }
 .tabs { display: flex; align-items: stretch; }
 .tab {
-  min-width: 96px;
-  padding: 0 12px;
+  min-width: 112px;
+  padding: 0 14px;
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -88,19 +88,31 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .header-time { font-family: var(--display); font-size: 22px; color: var(--prim); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--prim); display: inline-block; }
 .dot-danger { background: var(--danger); }
+/* Zone tactile de 44 px, mais pastille visible plus petite pour respirer dans la barre de 48 px. */
 .icon-btn {
   width: 44px;
   height: 44px;
   padding: 0;
   background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  border: 0;
   color: var(--prim);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
 }
+.icon-btn > span {
+  width: 36px;
+  height: 30px;
+  border-radius: 15px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.icon-btn:active > span { background: var(--prim); color: var(--bg); }
 
 /* ---------- Éléments communs ---------- */
 .card {
@@ -210,12 +222,42 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 }
 .plane svg { position: absolute; left: 11px; top: 11px; }
 .plane-label { position: absolute; left: 36px; top: 4px; font-family: var(--display); font-size: 10px; letter-spacing: 0.5px; white-space: nowrap; }
-.plane.is-sel { color: var(--sec); z-index: 2; }
+.plane.is-ground { opacity: 0.45; }
+.plane.is-sel { color: var(--sec); z-index: 2; opacity: 1; }
 .plane.is-emergency { color: var(--danger); }
 .range-label { position: absolute; left: 0; top: 0; font-family: var(--display); font-size: 22px; }
 .zoom { position: absolute; left: 0; bottom: 0; display: flex; gap: 8px; }
 .radar-foot { position: absolute; right: 0; bottom: 4px; font-size: 11px; color: var(--dim); }
-.callsign { font-family: var(--display); font-size: 36px; line-height: 1; color: var(--sec); }
+.callsign { font-family: var(--display); font-size: 32px; line-height: 1; color: var(--sec); }
+.route { display: flex; align-items: center; gap: 8px; color: var(--sec); min-width: 0; }
+.route svg { flex-shrink: 0; }
+.route-end { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.route-code { font-family: var(--display); font-size: 18px; }
+.route-city { font-size: 11px; color: var(--text-soft); max-width: 92px; }
+.freq-hint {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 8px;
+  border: 1px dashed var(--line);
+  font-size: 11px;
+  color: var(--text-soft);
+}
+.freq-hint b { font-family: var(--display); font-weight: 400; font-size: 15px; color: var(--prim); }
+.square-btn.wide { width: 72px; font-size: 15px; letter-spacing: 1px; }
+.square-btn.is-on { background: var(--prim); color: var(--bg); border-color: var(--prim); }
+.radar-airport rect { fill: none; stroke: var(--dim); stroke-width: 1.2; }
+.radar-airport text { fill: var(--dim); font-family: var(--display); font-size: 9px; }
+.radar-airport.is-hl rect { stroke: var(--sec); }
+.radar-airport.is-hl text { fill: var(--sec); }
+.airport { flex-shrink: 0; gap: 6px; padding: 8px 10px; }
+.airport.is-hl { border-color: var(--sec); }
+.airport-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.airport-code { font-family: var(--display); font-size: 20px; color: var(--sec); flex-shrink: 0; }
+.airport-dist { margin-left: auto; flex-shrink: 0; }
+.freqs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; }
+.freq { display: flex; flex-direction: column; }
+.freq-mhz { font-family: var(--display); font-size: 20px; line-height: 1.1; }
 .subline { font-size: 12px; color: var(--text-soft); }
 .flight-card .grid2 { margin-top: 4px; }
 .list-block { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; }

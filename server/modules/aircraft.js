@@ -1,4 +1,5 @@
 import { airlineFor } from './airlines.js';
+import { routeFor } from './routes.js';
 
 const NM_KM = 1.852;
 const RADIUS_NM = 60; // ~110 km : couvre la portée max du radar (100 km)
@@ -20,12 +21,14 @@ function normalize(a, lat0, lon0) {
   const callsign = (a.flight || '').trim();
   const onGround = a.alt_baro === 'ground';
   const alt = onGround ? 0 : Number.isFinite(a.alt_baro) ? a.alt_baro : Number.isFinite(a.alt_geom) ? a.alt_geom : null;
+  const route = routeFor(callsign);
   return {
     id: a.hex,
     callsign: callsign || (a.r || a.hex || '').toUpperCase(),
     reg: a.r || null,
     type: a.t || null,
-    airline: airlineFor(callsign, a.r),
+    airline: route?.airline || airlineFor(callsign, a.r),
+    route: route ? { from: route.from, to: route.to } : null,
     alt,
     onGround,
     speed: Number.isFinite(a.gs) ? Math.round(a.gs * NM_KM) : null,

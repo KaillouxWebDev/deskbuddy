@@ -15,6 +15,12 @@ mkdir -p "$PROFILE/Default"
 sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' \
   "$PROFILE/Default/Preferences" 2>/dev/null || true
 
+# Curseur invisible : cage affiche sinon une flèche fixe au centre de l'écran tactile.
+ICONS="$HOME/.local/share/icons"
+export XCURSOR_THEME="$(python3 "$(dirname "$0")/hide-cursor.py" "$ICONS" 2>/dev/null || echo default)"
+export XCURSOR_PATH="$ICONS:/usr/share/icons"
+export XCURSOR_SIZE=24
+
 cage -d -s -- "$BROWSER" \
   --kiosk \
   --user-data-dir="$PROFILE" \

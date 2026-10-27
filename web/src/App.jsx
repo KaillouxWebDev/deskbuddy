@@ -7,14 +7,12 @@ import AlertModal from './components/AlertModal.jsx';
 import SleepOverlay from './components/SleepOverlay.jsx';
 import Radar from './tabs/Radar.jsx';
 import Printer from './tabs/Printer.jsx';
-import Claude from './tabs/Claude.jsx';
 import Clock from './tabs/Clock.jsx';
 import System from './tabs/System.jsx';
 
 export const TABS = [
   { id: 'radar', label: 'RADAR' },
   { id: 'printer', label: 'IMPRIMANTE' },
-  { id: 'claude', label: 'CLAUDE' },
   { id: 'clock', label: 'HORLOGE' },
   { id: 'system', label: 'SYSTÈME' }
 ];
@@ -81,7 +79,6 @@ export default function App() {
       <main className="content">
         {tab === 'radar' && <Radar {...props} />}
         {tab === 'printer' && <Printer {...props} />}
-        {tab === 'claude' && <Claude />}
         {tab === 'clock' && <Clock {...props} />}
         {tab === 'system' && <System {...props} mode={mode} />}
       </main>
