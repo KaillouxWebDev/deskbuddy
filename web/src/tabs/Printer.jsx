@@ -82,9 +82,9 @@ export default function Printer({ state, now }) {
         <div className={`remaining tone-${p.state === 'PAUSE' ? 'danger' : 'sec'}`}>
           {p.state === 'RUNNING' ? duration(p.remainingMin) : p.state === 'PAUSE' ? 'en pause' : st.label.toLowerCase()}
         </div>
-        <div className="small soft center ellipsis">
-          {p.file || 'aucun fichier'}
-          {p.state === 'RUNNING' && end ? ` · fin vers ${end}` : ''}
+        <div className="print-meta">
+          <div className="small soft center ellipsis">{p.file || 'aucun fichier'}</div>
+          {p.state === 'RUNNING' && end && <div className="small sec center">fin estimée vers {end}</div>}
         </div>
       </section>
 

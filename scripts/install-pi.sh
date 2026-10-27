@@ -24,7 +24,8 @@ mkdir -p data
 
 say "Paquets du kiosque (cage + chromium)"
 sudo apt-get update -qq
-sudo apt-get install -y -qq cage curl git
+sudo apt-get install -y -qq cage curl git python3
+sudo apt-get install -y -qq wlrctl || echo "(wlrctl indisponible : le curseur ne sera pas garé dans le coin, seulement rendu invisible)"
 sudo apt-get install -y -qq chromium 2>/dev/null || sudo apt-get install -y -qq chromium-browser
 
 say "Image Docker"

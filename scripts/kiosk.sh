@@ -15,13 +15,13 @@ mkdir -p "$PROFILE/Default"
 sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' \
   "$PROFILE/Default/Preferences" 2>/dev/null || true
 
-# Curseur invisible : cage affiche sinon une flèche fixe au centre de l'écran tactile.
+# Curseur invisible : sans ça, cage affiche une flèche (au centre, puis là où Chromium change de forme).
 ICONS="$HOME/.local/share/icons"
 export XCURSOR_THEME="$(python3 "$(dirname "$0")/hide-cursor.py" "$ICONS" 2>/dev/null || echo default)"
 export XCURSOR_PATH="$ICONS:/usr/share/icons"
 export XCURSOR_SIZE=24
 
-cage -d -s -- "$BROWSER" \
+cage -d -s -- "$(dirname "$0")/kiosk-session.sh" "$BROWSER" \
   --kiosk \
   --user-data-dir="$PROFILE" \
   --ozone-platform=wayland \
