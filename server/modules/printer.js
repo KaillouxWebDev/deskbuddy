@@ -1,4 +1,5 @@
 import mqtt from 'mqtt';
+import { createSpools } from './spools.js';
 
 /*
  * Bambu Lab A1 en LECTURE SEULE via son broker MQTT local (port 8883, TLS auto-signé).
@@ -27,11 +28,21 @@ function deepMerge(target, src) {
 function trays(raw) {
   const units = raw.ams?.ams || [];
   const list = units.flatMap((u, ui) =>
-    (u.tray || []).map((t) => ({
-      slot: ui * 4 + Number(t.id) + 1,
-      type: t.tray_type || null,
-      color: t.tray_color ? `#${String(t.tray_color).slice(0, 6)}` : null
-    }))
+    (u.tray || []).map((t) => {
+      // Identifiant unique de la bobine (puce RFID Bambu) ; des zéros = pas de puce lue.
+      const id = [t.tray_uuid, t.tag_uid].find((v) => v && !/^0+$/.test(String(v)));
+      const remain = num(t.remain);
+      return {
+        slot: ui * 4 + Number(t.id) + 1,
+        type: t.tray_type || null,
+        material: t.tray_sub_brands || t.tray_type || null,
+        color: t.tray_color ? `#${String(t.tray_color).slice(0, 6)}` : null,
+        uuid: id ? String(id) : null,
+        remain: remain !== null && remain >= 0 ? remain : null,
+        weightG: num(t.tray_weight),
+        raw: t
+      };
+    })
   );
   const now = num(raw.ams?.tray_now);
   return { trays: list, activeSlot: now !== null && now < 254 ? now + 1 : now === 254 ? 'ext' : null };
@@ -65,7 +76,8 @@ export function derive(raw) {
   };
 }
 
-export function startPrinter(store, { host, serial, accessCode, mock }) {
+export function startPrinter(store, { host, serial, accessCode, mock, dataDir }) {
+  const spools = createSpools(store, { dataDir });
   const journal = [];
   const log = (text, level = 'info') => {
     journal.unshift({ at: Date.now(), text, level });
@@ -103,6 +115,8 @@ export function startPrinter(store, { host, serial, accessCode, mock }) {
         log('Impression en pause');
       }
     }
+    spools.observe(d.trays || []);
+    d.trays = (d.trays || []).map(({ raw, ...t }) => t); // le brut ne sert qu'au journal de debug
     prev = d;
     store.update('printer', { ...d, alert, journal: [...journal] });
   };
@@ -189,10 +203,10 @@ function startMock(store, handle) {
         {
           id: '0',
           tray: [
-            { id: '0', tray_type: 'PLA', tray_color: '1B1B1BFF' },
-            { id: '1', tray_type: 'PLA', tray_color: 'F2F2F2FF' },
-            { id: '2', tray_type: 'PLA', tray_color: '2F8F4EFF' },
-            { id: '3', tray_type: 'PETG', tray_color: '8A8F95FF' }
+            { id: '0', tray_type: 'PLA', tray_sub_brands: 'PLA Basic', tray_color: '1B1B1BFF', tray_uuid: 'A1B2C3D4E5F60718293A4B5C6D7E8F90', tray_weight: '1000', remain: 72 },
+            { id: '1', tray_type: 'PLA', tray_sub_brands: 'PLA Basic', tray_color: 'F2F2F2FF', tray_uuid: 'B1B2C3D4E5F60718293A4B5C6D7E8F90', tray_weight: '1000', remain: 38 },
+            { id: '2', tray_type: 'PLA', tray_sub_brands: 'PLA Matte', tray_color: '2F8F4EFF', tray_uuid: 'C1B2C3D4E5F60718293A4B5C6D7E8F90', tray_weight: '1000', remain: 12 },
+            { id: '3', tray_type: 'PETG', tray_sub_brands: 'PETG HF', tray_color: '8A8F95FF', tray_uuid: 'D1B2C3D4E5F60718293A4B5C6D7E8F90', tray_weight: '1000', remain: 91 }
           ]
         }
       ]
@@ -202,6 +216,8 @@ function startMock(store, handle) {
   const step = () => {
     if (raw.gcode_state === 'RUNNING') {
       raw.mc_percent = Math.min(100, raw.mc_percent + 1);
+      const active = raw.ams.ams[0].tray[Number(raw.ams.tray_now)];
+      if (raw.mc_percent % 4 === 0 && active.remain > 0) active.remain -= 1; // la bobine active se vide doucement
       raw.mc_remaining_time = Math.max(0, Math.round((100 - raw.mc_percent) * 1.4));
       raw.layer_num = Math.round((raw.mc_percent / 100) * raw.total_layer_num);
       if (raw.mc_percent === 45) {

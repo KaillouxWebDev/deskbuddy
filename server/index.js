@@ -42,7 +42,8 @@ startPrinter(store, {
   host: process.env.BAMBU_HOST,
   serial: process.env.BAMBU_SERIAL,
   accessCode: process.env.BAMBU_ACCESS_CODE,
-  mock: process.env.MOCK_PRINTER === '1'
+  mock: process.env.MOCK_PRINTER === '1',
+  dataDir: DATA_DIR
 });
 startTimers(store);
 

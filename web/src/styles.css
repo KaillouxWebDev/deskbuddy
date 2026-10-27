@@ -531,3 +531,24 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .naked-eye { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sec); }
 .naked-eye svg, .row svg { vertical-align: -2px; }
 .wx-bolt-key { color: #ffd23f; }
+
+/* ---------- Stock de filament ---------- */
+.link-btn { min-height: 32px; padding: 0 10px; background: var(--soft); border: 1px solid var(--line); border-radius: 16px; color: var(--prim); font-family: var(--display); font-size: 12px; letter-spacing: 1px; cursor: pointer; }
+.tray .small.danger { color: var(--danger); }
+.stock-card { display: flex; flex-direction: column; padding: 14px 18px; gap: 12px; }
+.stock-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.stock-head h1 { margin: 0 0 4px; font-weight: 400; }
+.stock-actions { display: flex; gap: 8px; align-items: center; }
+.stock-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-content: start; }
+.spool { border: 1px solid var(--line); background: var(--soft); padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.spool.is-loaded { border-color: var(--prim); }
+.spool.is-low { border-color: var(--danger); }
+.spool.is-low .bar > div { background: var(--danger); }
+.spool-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.spool-top .swatch { width: 26px; height: 26px; flex-shrink: 0; }
+.spool-name { display: flex; flex-direction: column; min-width: 0; font-family: var(--display); font-size: 15px; }
+.spool-slot { margin-left: auto; flex-shrink: 0; font-size: 10px; letter-spacing: 1px; padding: 2px 6px; border: 1px solid var(--prim); }
+.spool-foot { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--display); font-size: 16px; }
+.spool-btn { min-height: 36px; background: transparent; border: 1px solid var(--line); color: var(--dim); font-family: var(--display); font-size: 11px; letter-spacing: 1px; cursor: pointer; }
+.spool .bar { flex: none; height: 6px; }
+.spool.is-loaded.is-low, .spool.is-low { border-color: var(--danger); }

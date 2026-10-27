@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import StockModal from '../components/StockModal.jsx';
 import { duration, hhmm, int } from '../lib/format.js';
 
 const STATE = {
@@ -34,7 +35,8 @@ function Notice({ title, children }) {
   );
 }
 
-export default function Printer({ state, now }) {
+export default function Printer({ state, now, send }) {
+  const [showStock, setShowStock] = useState(false);
   const p = state.printer;
   if (!p) return <Notice title="IMPRIMANTE">Connexion au serveur…</Notice>;
   if (p.configured === false) {
@@ -95,7 +97,12 @@ export default function Printer({ state, now }) {
         </div>
 
         <div className="card">
-          <span className="label">{p.trays?.length ? 'AMS LITE' : 'BOBINE'}</span>
+          <div className="card-head">
+            <span className="label">{p.trays?.length ? 'AMS LITE' : 'BOBINE'}</span>
+            <button type="button" className="link-btn" onClick={() => setShowStock(true)}>
+              STOCK · {(state.spools || []).filter((s) => !s.archived).length} bobines
+            </button>
+          </div>
           <div className="ams">
             {slots.map((t) => {
               const on = t.slot === p.activeSlot;
@@ -103,6 +110,9 @@ export default function Printer({ state, now }) {
                 <div key={t.slot} className={`tray${on ? ' is-active' : ''}`}>
                   <span className="swatch" style={{ background: t.color || 'transparent' }} />
                   <span className="small">{t.type || 'Vide'}{on ? ' ▶' : ''}</span>
+                  {t.remain !== null && t.remain !== undefined && (
+                    <span className={`small ${t.remain <= 15 ? 'danger' : 'dim'}`}>{t.remain}%</span>
+                  )}
                 </div>
               );
             })}
@@ -125,6 +135,7 @@ export default function Printer({ state, now }) {
           </div>
         </div>
       </section>
+      {showStock && <StockModal spools={state.spools || []} send={send} onClose={() => setShowStock(false)} />}
     </div>
   );
 }
