@@ -211,7 +211,12 @@ function WeatherLayer({ home, range, rain, lightning, now }) {
   return (
     <div className="wx-layer" aria-hidden="true">
       {tiles.map((t) => (
-        <img key={t.key} className="wx-rain" src={t.src} alt="" style={{ left: t.left, top: t.top, width: t.size, height: t.size }} />
+        // La tuile sert de masque : la pluie s'affiche d'une seule teinte froide, pour ne pas se confondre avec les éclairs.
+        <div
+          key={t.key}
+          className="wx-rain"
+          style={{ left: t.left, top: t.top, width: t.size, height: t.size, WebkitMaskImage: `url(${t.src})`, maskImage: `url(${t.src})` }}
+        />
       ))}
       {lightningSrc && <img className="wx-lightning" src={lightningSrc} alt="" />}
     </div>
@@ -316,8 +321,8 @@ export default function Radar({ state, settings, send, now }) {
 
         <div className="range-label">{range} km</div>
         <div className="zoom">
-          <button type="button" className="square-btn" aria-label="Zoomer" onClick={() => zoom(-1)} disabled={range === RANGES[0]}>+</button>
           <button type="button" className="square-btn" aria-label="Dézoomer" onClick={() => zoom(1)} disabled={range === RANGES[RANGES.length - 1]}>−</button>
+          <button type="button" className="square-btn" aria-label="Zoomer" onClick={() => zoom(-1)} disabled={range === RANGES[0]}>+</button>
         </div>
         <div className="radar-foot">{list.length} avion{list.length > 1 ? 's' : ''}</div>
         <div className="layer-toggles">

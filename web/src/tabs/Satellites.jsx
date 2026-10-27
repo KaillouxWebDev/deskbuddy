@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNow } from '../lib/useDeskbuddy.js';
 import { hhmm, mmss } from '../lib/format.js';
+import SatInfoModal from '../components/SatInfoModal.jsx';
 
 const R = 180; // horizon (0°) sur l'anneau extérieur
 const C = 202;
@@ -37,6 +38,7 @@ function Freq({ f, live }) {
 export default function Satellites({ state }) {
   const now = useNow(1000);
   const [selId, setSelId] = useState(null);
+  const [showInfo, setShowInfo] = useState(false);
   const passes = (state.satPasses?.passes || []).filter((p) => p.los > now);
   const live = state.satLive?.sats || [];
   const inView = live.filter((s) => s.visible).sort((a, b) => b.el - a.el);
@@ -89,7 +91,14 @@ export default function Satellites({ state }) {
           })}
         </svg>
         <div className="range-label">CIEL</div>
-        <div className="radar-foot">{inView.length ? `${inView.length} en vue` : 'aucun en vue'}</div>
+        <div className="radar-foot sky-foot">{inView.length ? `${inView.length} en vue` : 'aucun en vue'}</div>
+        <button type="button" className="square-btn sky-info-btn" aria-label="Fiche des satellites" onClick={() => setShowInfo(true)}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11 V17" />
+            <circle cx="12" cy="7.5" r="0.6" fill="currentColor" />
+          </svg>
+        </button>
       </section>
 
       <section className="col" aria-label="Passage sélectionné">
@@ -144,6 +153,9 @@ export default function Satellites({ state }) {
           </div>
         </div>
       </section>
+      {showInfo && (
+        <SatInfoModal catalog={state.satCatalog || []} passes={passes} initialId={satId} onClose={() => setShowInfo(false)} />
+      )}
     </div>
   );
 }

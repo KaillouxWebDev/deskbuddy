@@ -11,25 +11,97 @@ export const SATELLITES = [
   {
     id: 25544,
     name: 'ISS',
+    fullName: 'Station spatiale internationale',
+    operator: 'NASA, Roscosmos, ESA, JAXA, ASC',
+    launched: 1998,
+    kind: 'Station habitée',
+    role: 'Laboratoire en orbite occupé en permanence par un équipage de 3 à 7 personnes.',
+    forYou:
+      "Contacts radio ARISS entre astronautes et écoles en phonie FM, images SSTV lors d'événements annoncés, relais APRS et répéteur FM. Visible à l'œil nu au crépuscule : c'est le point le plus brillant qui traverse le ciel sans clignoter.",
+    gear: 'Portatif VHF/UHF et antenne d\'origine pour écouter la phonie ; antenne directive pour le répéteur.',
     freqs: [
       { label: 'Voix FM', down: 145.8 },
       { label: 'APRS / packet', down: 145.825 },
       { label: 'Répéteur FM', down: 437.8, up: '145.990 (67 Hz)' }
     ]
   },
-  { id: 27607, name: 'SO-50', freqs: [{ label: 'Répéteur FM', down: 436.795, up: '145.850 (67 Hz)' }] },
-  { id: 43678, name: 'PO-101', freqs: [{ label: 'Répéteur FM (sur programme)', down: 145.9, up: '437.500 (141,3 Hz)' }] },
+  {
+    id: 27607,
+    name: 'SO-50',
+    fullName: 'SaudiSat-1C',
+    operator: 'Arabie saoudite (KACST), radioamateurs',
+    launched: 2002,
+    kind: 'Satellite radioamateur',
+    role: 'Répéteur FM simple : il retransmet en UHF ce qu\'il reçoit en VHF.',
+    forYou:
+      "Le satellite idéal pour débuter : un portatif bi-bande suffit. Il faut d'abord envoyer une tonalité de 74,4 Hz pour armer son minuteur, puis parler avec la tonalité 67 Hz.",
+    gear: 'Portatif bi-bande + antenne directive légère (type Arrow) tenue à la main.',
+    freqs: [{ label: 'Répéteur FM', down: 436.795, up: '145.850 (67 Hz)' }]
+  },
+  {
+    id: 43678,
+    name: 'PO-101',
+    fullName: 'Diwata-2',
+    operator: 'Philippines (programme STAMINA4Space)',
+    launched: 2018,
+    kind: 'Microsatellite d\'observation + radioamateur',
+    role: 'Satellite d\'observation de la Terre qui embarque un répéteur FM radioamateur.',
+    forYou: "Le répéteur n'est allumé que sur des créneaux annoncés à l'avance par l'opérateur : vérifier le planning avant d'écouter.",
+    gear: 'Portatif bi-bande, antenne directive conseillée.',
+    freqs: [{ label: 'Répéteur FM (sur programme)', down: 145.9, up: '437.500 (141,3 Hz)' }]
+  },
   {
     id: 44909,
     name: 'RS-44',
+    fullName: 'DOSAAF-85',
+    operator: 'Russie, radioamateurs',
+    launched: 2019,
+    kind: 'Satellite radioamateur',
+    role: 'Transpondeur linéaire en orbite haute (~1 200 km) : longs passages et très grande zone de couverture.',
+    forYou: "Le meilleur pour des contacts lointains en BLU ou en CW, jusqu'à plusieurs milliers de kilomètres. Pas de FM : il faut un poste tous modes.",
+    gear: 'Poste tous modes (BLU/CW) VHF/UHF, idéalement deux, et antennes directives.',
     freqs: [
       { label: 'Balise CW', down: 435.605 },
       { label: 'Transpondeur SSB/CW', range: '435.610–435.670', up: '145.935–145.995' }
     ]
   },
-  { id: 24278, name: 'FO-29', freqs: [{ label: 'Transpondeur SSB/CW (intermittent)', range: '435.800–435.900', up: '145.900–146.000' }] },
-  { id: 57166, name: 'METEOR M2-3', freqs: [{ label: 'Images LRPT', down: 137.9 }] },
-  { id: 59051, name: 'METEOR M2-4', freqs: [{ label: 'Images LRPT (selon programmation)', down: 137.9 }] }
+  {
+    id: 24278,
+    name: 'FO-29',
+    fullName: 'Fuji-OSCAR 29 (JAS-2)',
+    operator: 'Japon (JARL)',
+    launched: 1996,
+    kind: 'Satellite radioamateur',
+    role: 'Transpondeur linéaire historique, toujours en service par intermittence.',
+    forYou: "Ses batteries sont usées : il fonctionne surtout quand il est au soleil. Un passage affiché ne garantit pas qu'il émet.",
+    gear: 'Poste tous modes (BLU/CW) et antennes directives.',
+    freqs: [{ label: 'Transpondeur SSB/CW (intermittent)', range: '435.800–435.900', up: '145.900–146.000' }]
+  },
+  {
+    id: 57166,
+    name: 'METEOR M2-3',
+    fullName: 'Meteor-M n°2-3',
+    operator: 'Russie (Roscosmos / Roshydromet)',
+    launched: 2023,
+    kind: 'Satellite météo',
+    role: 'Satellite météorologique en orbite polaire : il photographie la Terre en visible et en infrarouge.',
+    forYou:
+      "Il diffuse ses images en continu en numérique (LRPT). Avec un récepteur SDR, une antenne adaptée et le logiciel SatDump, tu récupères toi-même une vraie image satellite de la région à chaque passage.",
+    gear: 'Clé SDR + antenne QFH ou dipôle en V (facile à fabriquer) + SatDump.',
+    freqs: [{ label: 'Images LRPT', down: 137.9 }]
+  },
+  {
+    id: 59051,
+    name: 'METEOR M2-4',
+    fullName: 'Meteor-M n°2-4',
+    operator: 'Russie (Roscosmos / Roshydromet)',
+    launched: 2024,
+    kind: 'Satellite météo',
+    role: 'Jumeau du M2-3, même mission d\'imagerie météo en orbite polaire.',
+    forYou: 'Même réception que le M2-3 ; la fréquence peut changer selon la programmation de l\'opérateur.',
+    gear: 'Clé SDR + antenne QFH ou dipôle en V + SatDump.',
+    freqs: [{ label: 'Images LRPT (selon programmation)', down: 137.9 }]
+  }
 ];
 
 const C_KMS = 299_792.458;
@@ -75,6 +147,25 @@ export function startSatellites(store, { lat, lon, altM = 200, dataDir }) {
       const t = cache.tles[s.id];
       if (t) recs.set(s.id, twoline2satrec(t.l1, t.l2));
     }
+    // Fiche descriptive + orbite déduite du TLE (envoyée une fois, pas à chaque rafraîchissement).
+    store.set(
+      'satCatalog',
+      SATELLITES.map((s) => {
+        const rec = recs.get(s.id);
+        let orbit = null;
+        if (rec) {
+          const periodMin = (2 * Math.PI) / rec.no; // no : mouvement moyen en rad/min
+          const a = Math.cbrt(398600.4418 * ((periodMin * 60) / (2 * Math.PI)) ** 2);
+          orbit = {
+            periodMin: Math.round(periodMin * 10) / 10,
+            inclination: Math.round(radiansToDegrees(rec.inclo) * 10) / 10,
+            perigeeKm: Math.round(a * (1 - rec.ecco) - 6378.137),
+            apogeeKm: Math.round(a * (1 + rec.ecco) - 6378.137)
+          };
+        }
+        return { ...s, orbit };
+      })
+    );
   };
 
   const look = (rec, date) => {

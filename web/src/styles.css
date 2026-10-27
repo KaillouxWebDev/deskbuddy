@@ -209,7 +209,7 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
   border-radius: 50%;
   pointer-events: none;
   background: conic-gradient(from 0deg, transparent 0deg 300deg, color-mix(in srgb, var(--prim) 26%, transparent) 358deg, color-mix(in srgb, var(--prim) 50%, transparent) 360deg);
-  animation: sweep 4s linear infinite;
+  animation: sweep 5s linear infinite;
   will-change: transform;
 }
 @keyframes sweep { to { transform: rotate(360deg); } }
@@ -416,8 +416,11 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 
 /* ---------- Calques météo sur le radar ---------- */
 .wx-layer { position: absolute; left: 2px; top: 2px; width: 400px; height: 400px; border-radius: 50%; overflow: hidden; pointer-events: none; }
-.wx-rain { position: absolute; opacity: 0.55; }
-.wx-lightning { position: absolute; inset: 0; width: 400px; height: 400px; filter: saturate(1.6) brightness(1.2); }
+.wx-rain { position: absolute; background: var(--rain); opacity: 0.3; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
+.wx-lightning { position: absolute; inset: 0; width: 400px; height: 400px; filter: saturate(1.8) brightness(1.3) drop-shadow(0 0 3px #ffd23f); animation: flash 2.4s ease-in-out infinite; }
+@keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+:root { --rain: #5ab8ff; }
+:root[data-mode='light'] { --rain: #1f6fd1; }
 .layer-toggles { position: absolute; left: 0; bottom: 0; display: flex; gap: 8px; }
 .radar-foot { bottom: 4px; }
 
@@ -440,3 +443,42 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 .row.is-low { opacity: 0.55; }
 .mode-chip { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 8px; font-size: 9px; letter-spacing: 1px; color: var(--dim); }
 .mode-chip.is-locked { border-color: var(--sec); color: var(--sec); }
+
+/* ---------- Fiche satellites ---------- */
+.sky-foot { top: 6px; bottom: auto; }
+.sky-info-btn { position: absolute; right: 0; bottom: 0; }
+.info-card {
+  width: 768px;
+  height: 404px;
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr);
+  border: 2px solid var(--prim);
+  background: var(--panel);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.info-list { border-right: 1px solid var(--line); padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+.info-item {
+  min-height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--prim);
+  font-family: var(--display);
+  font-size: 15px;
+  cursor: pointer;
+}
+.info-item.is-sel { border-color: var(--sec); background: var(--sec-bg); color: var(--sec); }
+.info-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.info-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.info-head h1 { margin: 0 0 4px; font-weight: 400; }
+.info-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.info-facts > div { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.info-body section { display: flex; flex-direction: column; gap: 4px; }
+.info-body p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text-soft); }
+.info-freq { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; font-size: 13px; }
+.info-freq .dim { grid-column: 1 / -1; }
+.info-freq-val { font-family: var(--display); font-size: 18px; color: var(--prim); }
