@@ -42,6 +42,7 @@ function trays(raw) {
         material: t.tray_sub_brands || t.tray_type || null,
         color: t.tray_color ? `#${String(t.tray_color).slice(0, 6)}` : null,
         uuid: id ? String(id) : null,
+        idx: t.tray_info_idx || null, // référence du filament Bambu (ex. GFA01 = PLA Matte)
         remain: remain !== null && remain >= 0 ? remain : null,
         weightG: num(t.tray_weight),
         raw: t
@@ -159,7 +160,15 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
       return [];
     }
   };
-  const publishHistory = (hist = readHistory()) => store.set('printHistory', hist.slice(0, 10));
+  // Noms de couleur recalculés à l'affichage : les anciennes entrées profitent aussi des noms officiels.
+  const publishHistory = (hist = readHistory()) =>
+    store.set(
+      'printHistory',
+      hist.slice(0, 10).map((e) => ({
+        ...e,
+        filaments: (e.filaments || []).map((f) => (f.known && f.color ? { ...f, colorName: spools.colorName(f.idx, f.material, f.color) } : f))
+      }))
+    );
 
   /** Fin d'impression (terminée, ou annulée au prorata de l'avancement) : décompte du stock et coût réel. */
   const finishJob = (fraction) => {
@@ -190,7 +199,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
         status: fraction >= 1 ? 'terminée' : 'annulée',
         fraction,
         grams: grams === null ? null : Math.round(grams * 10) / 10,
-        filaments: used.map((u) => ({ label: u.spool, material: u.material, colorName: u.colorName, color: u.color, grams: u.grams, known: u.known })),
+        filaments: used.map((u) => ({ label: u.spool, material: u.material, idx: u.idx, colorName: u.colorName, color: u.color, grams: u.grams, known: u.known })),
         filamentCost,
         elecCost: elec,
         cost
@@ -265,6 +274,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
   };
 
   publishHistory();
+  spools.onColors(() => publishHistory());
 
   store.register('printer:ack', () => {
     if (alert) {

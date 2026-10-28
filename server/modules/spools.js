@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { writeJson, writeAtomic, DEBUG } from '../lib/fsx.js';
+import { createColorNames } from './bambuColors.js';
 import path from 'node:path';
 
 /*
@@ -13,49 +14,6 @@ import path from 'node:path';
 
 const LOW_PCT = 15;
 const DEBUG_MAX_LINES = 300;
-
-const COLOR_NAMES = [
-  ['Noir', [20, 20, 20]],
-  ['Blanc', [245, 245, 245]],
-  ['Gris', [140, 140, 140]],
-  ['Gris clair', [200, 200, 200]],
-  ['Gris foncé', [70, 70, 70]],
-  ['Rouge', [200, 30, 40]],
-  ['Bordeaux', [110, 20, 40]],
-  ['Orange', [240, 120, 30]],
-  ['Jaune', [245, 210, 30]],
-  ['Jaune pâle', [247, 217, 89]],
-  ['Beige', [225, 200, 160]],
-  ['Marron', [110, 70, 40]],
-  ['Vert', [40, 150, 70]],
-  ['Vert clair', [140, 210, 90]],
-  ['Vert foncé', [20, 80, 40]],
-  ['Turquoise', [40, 190, 180]],
-  ['Bleu clair', [110, 180, 240]],
-  ['Bleu', [30, 80, 200]],
-  ['Bleu marine', [20, 35, 90]],
-  ['Violet', [120, 60, 170]],
-  ['Rose', [240, 130, 180]],
-  ['Magenta', [210, 40, 140]],
-  ['Doré', [200, 160, 60]],
-  ['Argent', [170, 175, 180]]
-];
-
-function colorName(hex) {
-  if (!hex) return 'Inconnue';
-  const v = parseInt(hex.slice(1, 7), 16);
-  const rgb = [(v >> 16) & 255, (v >> 8) & 255, v & 255];
-  let best = COLOR_NAMES[0];
-  let bestD = Infinity;
-  for (const c of COLOR_NAMES) {
-    const d = 2 * (rgb[0] - c[1][0]) ** 2 + 4 * (rgb[1] - c[1][1]) ** 2 + 3 * (rgb[2] - c[1][2]) ** 2;
-    if (d < bestD) {
-      bestD = d;
-      best = c;
-    }
-  }
-  return best[0];
-}
 
 export function createSpools(store, { dataDir }) {
   const file = path.join(dataDir, 'spools.json');
@@ -71,6 +29,12 @@ export function createSpools(store, { dataDir }) {
     if (!s.tracked) Object.assign(s, { tracked: true, grams: s.weightG || 1000, needsLevel: true, lowNotified: false });
   }
   const lastRaw = new Map();
+
+  // Noms officiels Bambu (« Jaune citron »...) ; recalculés pour toutes les bobines dès que le catalogue arrive.
+  const colors = createColorNames(dataDir);
+  const rename = () => {
+    for (const s of Object.values(spools)) s.colorName = colors.name(s.idx, s.material, s.color);
+  };
 
   const view = (s) => ({ ...s, pct: s.weightG ? Math.max(0, Math.min(100, Math.round((s.grams / s.weightG) * 100))) : null });
 
@@ -135,7 +99,8 @@ export function createSpools(store, { dataDir }) {
           material: t.material || t.type || '?',
           type: t.type || null,
           color: t.color || null,
-          colorName: colorName(t.color),
+          idx: t.idx || null,
+          colorName: colors.name(t.idx, t.material || t.type, t.color),
           weightG,
           grams: weightG, // supposée pleine tant que tu n'as pas indiqué son niveau
           needsLevel: true,
@@ -148,6 +113,11 @@ export function createSpools(store, { dataDir }) {
         store.toast('info', 'NOUVELLE BOBINE', `${spools[t.uuid].material} ${spools[t.uuid].colorName.toLowerCase()} · indique son niveau dans STOCK`);
         changed = true;
         continue;
+      }
+      if (t.idx && prev.idx !== t.idx) {
+        prev.idx = t.idx;
+        prev.colorName = colors.name(t.idx, prev.material, prev.color);
+        changed = true;
       }
       if (prev.slot !== t.slot || prev.archived) {
         prev.slot = t.slot;
@@ -200,6 +170,7 @@ export function createSpools(store, { dataDir }) {
         spool: s ? `${s.material} ${s.colorName.toLowerCase()}` : `${f.type || '?'} ${f.color || ''} (bobine non reconnue)`,
         material: s ? s.material : f.type || null,
         colorName: s ? s.colorName : null,
+        idx: s ? s.idx || null : null,
         color: s ? s.color : f.color || null,
         known: Boolean(s)
       });
@@ -235,5 +206,20 @@ export function createSpools(store, { dataDir }) {
   });
 
   publish();
-  return { observe, match, bySlot, consume };
+  rename();
+  const colorListeners = [];
+  colors.onLoad(() => {
+    rename();
+    publish();
+    colorListeners.forEach((fn) => fn());
+  });
+
+  return {
+    observe,
+    match,
+    bySlot,
+    consume,
+    colorName: (idx, material, hex) => colors.name(idx, material, hex),
+    onColors: (fn) => colorListeners.push(fn)
+  };
 }
