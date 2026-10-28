@@ -147,7 +147,21 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     return { start: j.start, estimate: j.estimate || null, infoError: Boolean(j.infoError), spool: spool ? spool.colorName : null };
   };
 
-  /** Fin d'impression : décompte du stock et coût réel. */
+  /*
+   * Historique des impressions (data/prints.json, 100 dernières ; les 10 dernières sont envoyées à l'écran).
+   * Chaque entrée : nom du modèle, début, durée, statut, poids et filaments utilisés, coût filament + électricité.
+   */
+  const readHistory = () => {
+    try {
+      const h = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+      return Array.isArray(h) ? h : [];
+    } catch {
+      return [];
+    }
+  };
+  const publishHistory = (hist = readHistory()) => store.set('printHistory', hist.slice(0, 10));
+
+  /** Fin d'impression (terminée, ou annulée au prorata de l'avancement) : décompte du stock et coût réel. */
   const finishJob = (fraction) => {
     const j = job;
     job = null;
@@ -155,27 +169,38 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     const p = prices();
     const hours = (Date.now() - j.start) / 3600_000;
     const elec = hours * (p.watts / 1000) * p.kwh;
-    if (!j.info) {
+    let used = [];
+    let grams = null;
+    if (j.info) {
+      used = spools.consume(j.info.filaments, fraction, pickFor(j));
+      grams = used.reduce((sum, u) => sum + u.grams, 0);
+      log(`Consommé ${Math.round(grams)} g (${used.map((u) => u.spool).join(', ')}) · coût ~${euros(grams * p.perG + elec)}`, 'info');
+    } else {
       log('Consommation inconnue : fichier d\'impression illisible', 'info');
-      return null;
     }
-    const used = spools.consume(j.info.filaments, fraction, pickFor(j));
-    const grams = used.reduce((sum, u) => sum + u.grams, 0);
-    const cost = grams * p.perG + elec;
-    log(`Consommé ${Math.round(grams)} g (${used.map((u) => u.spool).join(', ')}) · coût ~${euros(cost)}`, 'info');
+    const filamentCost = grams === null ? null : grams * p.perG;
+    const cost = (filamentCost ?? 0) + elec;
     try {
-      let hist = [];
-      try {
-        hist = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
-      } catch {
-        /* premier historique */
-      }
-      hist.unshift({ at: Date.now(), file: j.info.file, fraction, grams: Math.round(grams), filamentCost: grams * p.perG, elecCost: elec, cost });
+      const hist = readHistory();
+      hist.unshift({
+        at: Date.now(),
+        start: j.start,
+        durationMin: Math.round(hours * 60),
+        name: (j.name || j.info?.file || 'Sans nom').replace(/(\.gcode)?\.3mf$/i, ''),
+        status: fraction >= 1 ? 'terminée' : 'annulée',
+        fraction,
+        grams: grams === null ? null : Math.round(grams * 10) / 10,
+        filaments: used.map((u) => ({ label: u.spool, material: u.material, colorName: u.colorName, color: u.color, grams: u.grams, known: u.known })),
+        filamentCost,
+        elecCost: elec,
+        cost
+      });
       writeJson(historyFile, hist.slice(0, 100), true);
-    } catch {
-      /* historique facultatif */
+      publishHistory(hist);
+    } catch (err) {
+      console.error('[printer] historique :', err.message);
     }
-    return { grams: Math.round(grams), cost };
+    return grams === null ? null : { grams: Math.round(grams), cost };
   };
   const journal = [];
   const log = (text, level = 'info') => {
@@ -204,7 +229,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
 
     // Début de suivi : à chaque nouvelle impression (ou au redémarrage du dashboard pendant une impression).
     if (!job && ACTIVE.includes(d.state)) {
-      job = { start: Date.now(), slots: new Set() };
+      job = { start: Date.now(), slots: new Set(), name: d.file || null };
       loadInfo(job, d);
     }
     // Emplacements de l'AMS réellement utilisés pendant l'impression (hors chauffe et purge de fin).
@@ -238,6 +263,8 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     prev = d;
     store.update('printer', { ...d, alert, journal: [...journal], job: publicJob(job) });
   };
+
+  publishHistory();
 
   store.register('printer:ack', () => {
     if (alert) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import StockModal from '../components/StockModal.jsx';
+import HistoryModal from '../components/HistoryModal.jsx';
 import { duration, hhmm, int } from '../lib/format.js';
 
 const STATE = {
@@ -37,6 +38,7 @@ function Notice({ title, children }) {
 
 export default function Printer({ state, now, send }) {
   const [showStock, setShowStock] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const p = state.printer;
   if (!p) return <Notice title="IMPRIMANTE">Connexion au serveur…</Notice>;
   if (p.configured === false) {
@@ -112,9 +114,14 @@ export default function Printer({ state, now, send }) {
         <div className="card">
           <div className="card-head">
             <span className="label">{p.trays?.length ? 'AMS LITE' : 'BOBINE'}</span>
-            <button type="button" className="link-btn" onClick={() => setShowStock(true)}>
-              STOCK · {(state.spools || []).filter((s) => !s.archived).length} bobines
-            </button>
+            <span className="card-actions">
+              <button type="button" className="link-btn" onClick={() => setShowHistory(true)}>
+                HISTORIQUE
+              </button>
+              <button type="button" className="link-btn" onClick={() => setShowStock(true)}>
+                STOCK · {(state.spools || []).filter((s) => !s.archived).length}
+              </button>
+            </span>
           </div>
           <div className="ams">
             {slots.map((t) => {
@@ -151,6 +158,7 @@ export default function Printer({ state, now, send }) {
           </div>
         </div>
       </section>
+      {showHistory && <HistoryModal history={state.printHistory} onClose={() => setShowHistory(false)} />}
       {showStock && <StockModal spools={state.spools || []} send={send} onClose={() => setShowStock(false)} />}
     </div>
   );

@@ -195,7 +195,14 @@ export function createSpools(store, { dataDir }) {
         s.grams = Math.max(0, s.grams - g);
         checkLow(s);
       }
-      done.push({ grams: g, spool: s ? `${s.material} ${s.colorName.toLowerCase()}` : `${f.type || '?'} ${f.color || ''} (bobine non reconnue)` });
+      done.push({
+        grams: g,
+        spool: s ? `${s.material} ${s.colorName.toLowerCase()}` : `${f.type || '?'} ${f.color || ''} (bobine non reconnue)`,
+        material: s ? s.material : f.type || null,
+        colorName: s ? s.colorName : null,
+        color: s ? s.color : f.color || null,
+        known: Boolean(s)
+      });
     }
     publish();
     return done;
