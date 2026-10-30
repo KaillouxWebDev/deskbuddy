@@ -5,6 +5,7 @@ import BootScreen from './components/BootScreen.jsx';
 import Header from './components/Header.jsx';
 import Toasts from './components/Toasts.jsx';
 import AlertModal from './components/AlertModal.jsx';
+import NotificationsModal from './components/NotificationsModal.jsx';
 import SleepOverlay from './components/SleepOverlay.jsx';
 import Radar from './tabs/Radar.jsx';
 import Printer from './tabs/Printer.jsx';
@@ -31,6 +32,7 @@ export default function App() {
   // La roue crantée ouvre les réglages ; un second appui ramène à l'onglet précédent.
   const toggleSettings = () => setTab(tab === 'system' ? lastTab.current : 'system');
   const [toasts, setToasts] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   const dismiss = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
 
@@ -111,6 +113,8 @@ export default function App() {
         onSleep={() => send('screen:sleep')}
         settingsOpen={tab === 'system'}
         onSettings={toggleSettings}
+        unread={state.notifications?.unread || 0}
+        onNotifs={() => setNotifOpen(true)}
       />
       <main className="content">
         {tab === 'radar' && <Radar {...props} />}
@@ -120,7 +124,15 @@ export default function App() {
         {tab === 'clock' && <Clock {...props} />}
         {tab === 'system' && <System {...props} mode={mode} />}
       </main>
-      <Toasts toasts={toasts} onClose={dismiss} />
+      <Toasts
+        toasts={toasts}
+        onClose={dismiss}
+        onOpen={(id) => {
+          dismiss(id);
+          setNotifOpen(true);
+        }}
+      />
+      {notifOpen && <NotificationsModal data={state.notifications} send={send} onClose={() => setNotifOpen(false)} />}
       {boot && <BootScreen key={boot} theme={themeOf(boot)} onDone={() => setBoot(null)} />}
       {showAlert && tab === 'printer' && <AlertModal alert={alert} printer={state.printer} send={send} />}
       <SleepOverlay asleep={asleep} saver={saver ? theme : null} date={date} onWake={() => send('screen:wake')} />

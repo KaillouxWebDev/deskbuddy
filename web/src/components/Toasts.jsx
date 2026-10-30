@@ -24,16 +24,16 @@ function Icon({ level }) {
   );
 }
 
-export default function Toasts({ toasts, onClose }) {
+export default function Toasts({ toasts, onClose, onOpen }) {
   return (
     <div className="toasts" role="status" aria-live="polite">
       {toasts.map((t) => (
         <div key={t.id} className={`toast toast-${t.level || 'info'}`}>
           <Icon level={t.level} />
-          <div className="toast-body">
+          <button type="button" className="toast-body" aria-label="Voir le texte complet" onClick={() => onOpen?.(t.id)}>
             <span className="toast-title">{t.title}</span>
             {t.text && <span className="toast-text">{t.text}</span>}
-          </div>
+          </button>
           <button type="button" className="toast-close" aria-label="Fermer la notification" onClick={() => onClose(t.id)}>
             <CloseIcon />
           </button>

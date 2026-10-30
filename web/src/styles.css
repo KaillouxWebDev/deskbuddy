@@ -1029,3 +1029,23 @@ html[data-theme='modern'] .saver-time { font-weight: 800; }
 .wifi-more { width: 52px; flex-shrink: 0; background: transparent; border: 0; border-left: 1px solid var(--line); color: var(--prim); font-size: 20px; letter-spacing: 1px; cursor: pointer; }
 .wifi-row.is-away { opacity: 0.75; }
 span.wifi-main { cursor: default; }
+
+/* ---------- Notifications et journal technique ---------- */
+.icon-btn { position: relative; }
+.badge { position: absolute; top: 3px; right: -1px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--sec); color: var(--bg); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; pointer-events: none; font-family: var(--mono); }
+button.toast-body { background: transparent; border: 0; padding: 0; margin: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.notif-tabs { margin-top: 8px; width: 440px; }
+.notif-tabs .seg { white-space: nowrap; }
+.notif-tabs .seg { padding: 0 12px; }
+.notif-row { flex-shrink: 0; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: start; padding: 8px 12px; border: 1px solid var(--line); border-left: 3px solid var(--line); background: var(--soft); }
+.notif-row.notif-warn { border-left-color: var(--sec); }
+.notif-row.notif-error { border-left-color: var(--danger); }
+.notif-row.notif-success { border-left-color: var(--prim); }
+.notif-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.notif-title { font-family: var(--display); font-size: 15px; letter-spacing: 0.5px; }
+.notif-level { font-size: 10px; padding: 1px 6px; margin-right: 8px; border: 1px solid currentColor; opacity: 0.8; vertical-align: middle; }
+.notif-warn .notif-level { color: var(--sec); }
+.notif-error .notif-level { color: var(--danger); }
+.notif-count { margin-left: 8px; font-size: 12px; color: var(--text-soft); }
+.notif-text { font-size: 13px; color: var(--text-soft); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.notif-empty { padding: 24px 4px; }

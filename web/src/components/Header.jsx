@@ -9,6 +9,15 @@ export function MoonIcon() {
   );
 }
 
+export function BellIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 17V11a6 6 0 0 1 12 0v6l1.8 2H4.2Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M10 21.5h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function GearIcon() {
   const teeth = [0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
     const r = (a * Math.PI) / 180;
@@ -25,7 +34,7 @@ export function GearIcon() {
   );
 }
 
-export default function Header({ tabs, tab, setTab, date, connected, online, printerAlert, satInView, wxLevel, onSleep, settingsOpen, onSettings }) {
+export default function Header({ tabs, tab, setTab, date, connected, online, printerAlert, satInView, wxLevel, onSleep, settingsOpen, onSettings, unread, onNotifs }) {
   return (
     <header className="header">
       <nav className="tabs" aria-label="Onglets">
@@ -52,6 +61,12 @@ export default function Header({ tabs, tab, setTab, date, connected, online, pri
         </span>
         <span className="header-time">{hhmm(date)}</span>
         <div className="header-actions">
+          <button type="button" className="icon-btn" aria-label={`Notifications${unread ? ` (${unread} nouvelles)` : ''}`} onClick={onNotifs}>
+            <span>
+              <BellIcon />
+            </span>
+            {unread > 0 && <b className="badge">{unread > 9 ? "9+" : unread}</b>}
+          </button>
           <button
             type="button"
             className={`icon-btn${settingsOpen ? ' is-on' : ''}`}

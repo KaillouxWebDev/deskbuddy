@@ -16,6 +16,7 @@ import { startSpace } from './modules/space.js';
 import { startLocation } from './modules/location.js';
 import { startWifi } from './modules/wifi.js';
 import { startNet } from './modules/net.js';
+import { startNotifications } from './modules/notifications.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../dist');
@@ -32,6 +33,8 @@ store.set('meta', {
   startedAt: Date.now()
 });
 
+// En premier : il capte aussi les erreurs des modules lancés ensuite.
+startNotifications(store, { dataDir: DATA_DIR });
 startSettings(store, { dataDir: DATA_DIR });
 startSystem(store, { dataDir: DATA_DIR });
 startNet(store);
