@@ -5,13 +5,24 @@ import { host } from '../lib/host.js';
  * téléphone). Les commandes passent par le service hôte, qui vérifie chaque paramètre.
  */
 
+// Version du service hôte attendue par ce dashboard (HOSTD_VERSION dans scripts/hostd.py).
+const HOSTD_EXPECTED = 3;
+// Profils générés par netplan (Raspberry Pi OS récent) : « netplan-wlan0-MonReseau » désigne le réseau « MonReseau ».
+const ssidOf = (name) => (typeof name === 'string' ? name.replace(/^netplan-[^-]+-(?=.)/, '') : name);
+
 export function startWifi(store) {
   let busy = false;
   store.set('wifi', { available: null, networks: [], saved: [], current: null, scanning: false, connecting: null });
 
   const status = async () => {
     try {
-      store.update('wifi', { ...(await host('wifi.status')), error: null });
+      const st = await host('wifi.status');
+      store.update('wifi', {
+        ...st,
+        current: st.current ? ssidOf(st.current) : null,
+        saved: [...new Set((st.saved || []).map(ssidOf))].sort(),
+        error: null
+      });
     } catch (err) {
       store.update('wifi', { available: false, error: err.message });
     }
@@ -60,6 +71,25 @@ export function startWifi(store) {
     status();
   });
 
+  // Le service hôte (root) est mis à jour par scripts/update.sh avec sudo. S'il est resté sur une ancienne
+  // version, le Wi-Fi se comporte mal sans raison visible : on le signale à l'écran.
+  let warned = false;
+  const checkHost = async () => {
+    let v = 0;
+    try {
+      v = Number(await host('version', {}, 5000)) || 0;
+    } catch (err) {
+      if (/absent|pas de réponse/.test(err.message)) return; // hors Pi, ou service arrêté : déjà signalé ailleurs
+    }
+    if (v < HOSTD_EXPECTED && !warned) {
+      warned = true;
+      store.toast('warn', 'SERVICE HÔTE PAS À JOUR', `version ${v || 'ancienne'} au lieu de ${HOSTD_EXPECTED} · sur le Pi : cd deskbuddy && ./scripts/update.sh`, { sticky: true });
+    }
+    if (v >= HOSTD_EXPECTED) warned = false;
+  };
+
   status();
   setInterval(status, 30_000);
+  setTimeout(checkHost, 20_000);
+  setInterval(checkHost, 15 * 60_000);
 }

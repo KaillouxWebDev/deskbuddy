@@ -24,6 +24,8 @@ SOCKET_GROUP = os.environ.get("HOSTD_GROUP", "deskbuddy")
 IFACE = os.environ.get("HOSTD_WIFI_IFACE", "wlan0")
 BACKLIGHT_GLOB = os.environ.get("HOSTD_BACKLIGHT_GLOB", "/sys/class/backlight/*")
 ZONEINFO = "/usr/share/zoneinfo"
+# Incrémenté à chaque changement du service : le dashboard prévient si le Pi tourne encore une ancienne version.
+HOSTD_VERSION = 3
 NMCLI_LOCK = threading.Lock()  # une seule opération Wi-Fi à la fois
 
 
@@ -107,6 +109,12 @@ def _terse(out):
     return rows
 
 
+def ssid_from_name(name):
+    """Profils générés par netplan (Raspberry Pi OS récent) : « netplan-wlan0-MonReseau » -> « MonReseau »."""
+    m = re.fullmatch(r"netplan-[^-]+-(.+)", name)
+    return m.group(1) if m else name
+
+
 def _saved_profiles():
     """Profils Wi-Fi enregistrés par NetworkManager, avec le vrai nom du réseau (SSID).
     Le nom du profil peut différer du SSID (« preconfigured » pour le Wi-Fi saisi à l'installation, « Box 1 »...)."""
@@ -119,7 +127,7 @@ def _saved_profiles():
             ssid = _nmcli("-g", "802-11-wireless.ssid", "connection", "show", "uuid", r[0]).strip()
         except Refused:
             ssid = ""
-        out.append({"uuid": r[0], "name": r[2], "ssid": ssid or r[2]})
+        out.append({"uuid": r[0], "name": r[2], "ssid": ssid or ssid_from_name(r[2])})
     return out
 
 
@@ -262,6 +270,7 @@ def timezone_set(args):
 
 COMMANDS = {
     "ping": lambda _: "pong",
+    "version": lambda _: HOSTD_VERSION,
     "backlight.info": backlight_info,
     "backlight.set": backlight_set,
     "backlight.power": backlight_power,
