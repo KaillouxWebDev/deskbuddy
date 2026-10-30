@@ -29,6 +29,10 @@ export default function WifiModal({ wifi, send, onClose }) {
   useEffect(() => {
     send('wifi:scan');
   }, [send]);
+  // Le Pi n'a pas (ou plus) le bon mot de passe : clavier ouvert directement sur ce réseau.
+  useEffect(() => {
+    if (wifi.needPassword) setTyping(wifi.needPassword);
+  }, [wifi.needPassword]);
 
   const saved = new Set(wifi.saved || []);
   const nets = wifi.networks || [];
@@ -58,8 +62,12 @@ export default function WifiModal({ wifi, send, onClose }) {
         secret
         minLength={8}
         okLabel="CONNEXION"
-        onCancel={() => setTyping(null)}
+        onCancel={() => {
+          setTyping(null);
+          send('wifi:prompted');
+        }}
         onOk={(password) => {
+          send('wifi:prompted');
           send('wifi:connect', { ssid: typing, password });
           setTyping(null);
         }}

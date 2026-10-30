@@ -25,7 +25,7 @@ IFACE = os.environ.get("HOSTD_WIFI_IFACE", "wlan0")
 BACKLIGHT_GLOB = os.environ.get("HOSTD_BACKLIGHT_GLOB", "/sys/class/backlight/*")
 ZONEINFO = "/usr/share/zoneinfo"
 # Incrémenté à chaque changement du service : le dashboard prévient si le Pi tourne encore une ancienne version.
-HOSTD_VERSION = 3
+HOSTD_VERSION = 4
 NMCLI_LOCK = threading.Lock()  # une seule opération Wi-Fi à la fois
 
 
@@ -131,13 +131,37 @@ def _saved_profiles():
     return out
 
 
+HARDENED = ["yes", "0", "2"]  # autoconnect, autoconnect-retries (0 = sans limite), powersave (2 = désactivé)
+HARDEN_KEYS = ["connection.autoconnect", "connection.autoconnect-retries", "802-11-wireless.powersave"]
+
+
+def _psk(uuid):
+    """Mot de passe enregistré dans un profil ('' si aucun). Lisible car le service tourne en root."""
+    try:
+        return _nmcli("-s", "-g", "802-11-wireless-security.psk", "connection", "show", "uuid", uuid).strip()
+    except Refused:
+        return ""
+
+
 def _harden_profile(uuid):
     """Comme un téléphone : reconnexion automatique sans limite d'essais, et pas d'économie d'énergie Wi-Fi
-    (sur le Pi 3, elle provoque des décrochages)."""
+    (sur le Pi 3, elle provoque des décrochages).
+    Prudence avec netplan (Raspberry Pi OS récent) : chaque modification réécrit le profil, et le mot de passe
+    peut s'y perdre. On ne touche donc au profil que si un réglage manque, et on réécrit le mot de passe
+    dans la même opération."""
     try:
-        _nmcli("connection", "modify", "uuid", uuid,
-               "connection.autoconnect", "yes", "connection.autoconnect-retries", "0",
-               "802-11-wireless.powersave", "2")
+        now = _nmcli("-g", ",".join(HARDEN_KEYS), "connection", "show", "uuid", uuid).splitlines()
+        now = [v.strip().split(" ")[0] for v in now]
+        norm = {"default": "2", "disable": "2", "-1": "-1"}
+        if [norm.get(v, v) if i == 2 else v for i, v in enumerate(now)] == HARDENED:
+            return
+        cmd = ["connection", "modify", "uuid", uuid]
+        for k, v in zip(HARDEN_KEYS, HARDENED):
+            cmd += [k, v]
+        psk = _psk(uuid)
+        if psk:
+            cmd += ["802-11-wireless-security.psk", psk]
+        _nmcli(*cmd)
     except Refused as e:
         print(f"[hostd] profil {uuid} : {e}", file=sys.stderr, flush=True)
 
@@ -187,37 +211,80 @@ def wifi_scan(_):
     return sorted(best.values(), key=lambda n: (not n["active"], -n["signal"]))
 
 
+def _security_of(ssid):
+    """Type de sécurité annoncé par le réseau (dernier balayage) : None si ouvert."""
+    try:
+        for r in _terse(_nmcli("-t", "-f", "SSID,SECURITY", "device", "wifi", "list", "--rescan", "no")):
+            if len(r) > 1 and r[0] == ssid:
+                return None if r[1] in ("", "--") else r[1]
+    except Refused:
+        pass
+    return "WPA2"
+
+
+def _create_profile(ssid, pw):
+    """Profil complet créé en une seule écriture (mot de passe et réglages ensemble) : rien à modifier ensuite."""
+    sec = _security_of(ssid)
+    cmd = ["connection", "add", "type", "wifi", "ifname", IFACE, "con-name", ssid, "ssid", ssid]
+    for k, v in zip(HARDEN_KEYS, HARDENED):
+        cmd += [k, v]
+    if sec:
+        if not pw:
+            raise Refused("mot de passe requis")
+        cmd += ["wifi-sec.key-mgmt", "sae" if "WPA3" in sec and "WPA2" not in sec else "wpa-psk", "wifi-sec.psk", pw]
+    out = _nmcli(*cmd)
+    m = re.search(r"\(([0-9a-f-]{36})\)", out)
+    if not m:
+        raise Refused("profil Wi-Fi non créé")
+    return m.group(1)
+
+
+def _up(uuid):
+    try:
+        _nmcli("--wait", "30", "connection", "up", "uuid", uuid, timeout=45)
+    except subprocess.TimeoutExpired:
+        raise Refused("pas de réponse du réseau")
+
+
 def wifi_connect(args):
-    """Réseau déjà enregistré : on réutilise son mot de passe. Nouveau mot de passe : on met à jour le profil
-    existant (pas de doublon). Échec : le profil est GARDÉ (un échec vient souvent d'un signal faible ou d'un
-    partage de connexion endormi, pas forcément du mot de passe)."""
+    """Réseau déjà enregistré, sans mot de passe fourni : on réutilise celui mémorisé. S'il manque ou ne
+    marche plus, on répond « mot de passe requis » et l'écran ouvre le clavier.
+    Mot de passe fourni : on recrée le profil proprement (une seule écriture, pas de doublon).
+    Échec : le profil est GARDÉ (un échec vient souvent d'un signal faible ou d'un partage de connexion endormi)."""
     ssid = _ssid(args)
     pw = args.get("password")
     if pw is not None and (not isinstance(pw, str) or not 8 <= len(pw) <= 63 or not pw.isprintable()):
         raise Refused("mot de passe Wi-Fi : 8 à 63 caractères")
     profiles = [p for p in _saved_profiles() if p["ssid"] == ssid]
-    if profiles:
+    if profiles and not pw:
         uuid = profiles[0]["uuid"]
         for extra in profiles[1:]:  # doublons laissés par les anciennes versions
             try:
                 _nmcli("connection", "delete", "uuid", extra["uuid"])
             except Refused:
                 pass
-        if pw:
-            _nmcli("connection", "modify", "uuid", uuid, "wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", pw)
+        if not _psk(uuid) and _security_of(ssid):
+            raise Refused("mot de passe requis")
         _harden_profile(uuid)
-        _nmcli("connection", "up", "uuid", uuid)
+        try:
+            _up(uuid)
+        except Refused as e:
+            if re.search(r"secrets were required|802-1x|psk", str(e), re.I):
+                raise Refused("mot de passe requis")
+            raise
         return True
-    cmd = ["device", "wifi", "connect", ssid, "ifname", IFACE]
-    if pw:
-        cmd[4:4] = ["password", pw]
+    for p in profiles:  # nouveau mot de passe : on repart d'un profil neuf
+        try:
+            _nmcli("connection", "delete", "uuid", p["uuid"])
+        except Refused:
+            pass
+    uuid = _create_profile(ssid, pw)
     try:
-        _nmcli(*cmd)
-    finally:
-        # Réussi ou non, le profil créé est réglé pour se reconnecter tout seul.
-        for p in _saved_profiles():
-            if p["ssid"] == ssid:
-                _harden_profile(p["uuid"])
+        _up(uuid)
+    except Refused as e:
+        if re.search(r"secrets were required|802-1x|psk", str(e), re.I):
+            raise Refused("mot de passe refusé par le réseau")
+        raise
     return True
 
 

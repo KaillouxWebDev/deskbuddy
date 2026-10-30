@@ -6,7 +6,7 @@ import { host } from '../lib/host.js';
  */
 
 // Version du service hôte attendue par ce dashboard (HOSTD_VERSION dans scripts/hostd.py).
-const HOSTD_EXPECTED = 3;
+const HOSTD_EXPECTED = 4;
 // Profils générés par netplan (Raspberry Pi OS récent) : « netplan-wlan0-MonReseau » désigne le réseau « MonReseau ».
 const ssidOf = (name) => (typeof name === 'string' ? name.replace(/^netplan-[^-]+-(?=.)/, '') : name);
 
@@ -46,19 +46,29 @@ export function startWifi(store) {
 
   store.register('wifi:connect', async ({ ssid, password }) => {
     if (typeof ssid !== 'string' || !ssid) return;
-    store.update('wifi', { connecting: ssid, error: null });
+    store.update('wifi', { connecting: ssid, needPassword: null, error: null });
     try {
       await host('wifi.connect', password ? { ssid, password: String(password) } : { ssid });
       store.toast('success', 'WI-FI CONNECTÉ', ssid);
     } catch (err) {
-      const wrongPw = /secrets were required|802-1x|password|mot de passe/i.test(err.message);
-      // Le réseau reste enregistré : un échec vient souvent d'un signal faible ou d'un partage de connexion endormi.
-      store.toast('warn', 'WI-FI : ÉCHEC', wrongPw ? `${ssid} · signal trop faible ou mot de passe changé (··· > nouveau mot de passe)` : `${ssid} · ${err.message}`, { sticky: true });
+      if (/mot de passe requis/.test(err.message)) {
+        // Mot de passe absent ou plus valable : l'écran ouvre directement le clavier.
+        store.update('wifi', { needPassword: ssid });
+        store.toast('warn', 'WI-FI', `${ssid} · mot de passe à ressaisir`);
+      } else if (/mot de passe refusé/.test(err.message)) {
+        store.update('wifi', { needPassword: ssid });
+        store.toast('warn', 'WI-FI : ÉCHEC', `${ssid} · mot de passe refusé par la box`, { sticky: true });
+      } else {
+        // Le réseau reste enregistré : un échec vient souvent d'un signal faible ou d'un partage de connexion endormi.
+        store.toast('warn', 'WI-FI : ÉCHEC', `${ssid} · ${err.message}`, { sticky: true });
+      }
     } finally {
       store.update('wifi', { connecting: null });
       status();
     }
   });
+
+  store.register('wifi:prompted', () => store.update('wifi', { needPassword: null }));
 
   store.register('wifi:forget', async ({ ssid }) => {
     if (typeof ssid !== 'string' || !ssid) return;
