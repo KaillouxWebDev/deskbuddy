@@ -13,8 +13,13 @@ fi
 
 # shellcheck source=lib-hostd.sh
 . "$REPO/scripts/lib-hostd.sh"
-install_hostd "$REPO" "$(id -un)" || echo "[update] service hôte : installation impossible (sudo ?)"
-fix_data_owner "$REPO"
+# Le service hôte tourne en root : il ne se met à jour que quand ce script est lancé à la main (sudo demande
+# alors le mot de passe). Lancé par le timer, on ne tente rien (sudo échouerait) ; si le service est en retard,
+# le dashboard l'affiche à l'écran.
+if [ -t 0 ] || sudo -n true 2>/dev/null; then
+  install_hostd "$REPO" "$(id -un)" || echo "[update] service hôte : installation impossible"
+fi
+if [ -t 0 ] || sudo -n true 2>/dev/null; then fix_data_owner "$REPO"; fi
 ensure_ids_in_env "$REPO/.env"
 
 docker compose pull -q && docker compose up -d --remove-orphans
