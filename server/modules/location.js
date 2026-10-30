@@ -38,6 +38,7 @@ async function reverse(lat, lon) {
     area: cc === 'fr' ? a.state_district || a.county || null : a.county || a.state || null,
     alertAreas: [a.county, a.state_district, a.state, a.province, a.region].filter(Boolean),
     country: a.country || null,
+    cc: cc ? cc.toUpperCase() : null,
     feed: FEEDS[cc] || null
   };
 }
@@ -59,7 +60,7 @@ export function startLocation(store, { home, homeArea, homeTz = 'Europe/Paris', 
   const file = path.join(dataDir, 'location.json');
   const homeOk = Number.isFinite(home.lat) && Number.isFinite(home.lon);
   const homeLoc = homeOk
-    ? { lat: home.lat, lon: home.lon, label: 'Maison', area: homeArea, alertAreas: [homeArea], feed: 'france', country: null, tz: homeTz }
+    ? { lat: home.lat, lon: home.lon, label: 'Maison', area: homeArea, alertAreas: [homeArea], feed: 'france', country: null, cc: process.env.WIFI_COUNTRY || 'FR', tz: homeTz }
     : null;
 
   let loc = null;
@@ -85,8 +86,17 @@ export function startLocation(store, { home, homeArea, homeTz = 'Europe/Paris', 
       .catch((e) => console.error(`[location] fuseau du Pi non modifié : ${e.message}`));
   };
 
+  // Pays Wi-Fi du lieu : canaux autorisés (1 à 13 en Europe, 1 à 11 aux États-Unis...).
+  let appliedCc = null;
+  const applyCc = (cc) => {
+    if (!cc || cc === appliedCc) return;
+    appliedCc = cc;
+    host('wifi.country', { cc }).catch((e) => console.error(`[location] pays Wi-Fi non modifié : ${e.message}`));
+  };
+
   const publish = () => {
     if (loc?.tz) applyTz(loc.tz);
+    if (loc?.cc) applyCc(loc.cc);
     store.set('home', loc ? { lat: loc.lat, lon: loc.lon, label: loc.label, area: loc.area, country: loc.country, tz: loc.tz || appliedTz, isHome: isHome(loc), pending: Boolean(loc.pending), canGoHome: Boolean(homeLoc) } : null);
   };
   const apply = (next) => {

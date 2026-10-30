@@ -1023,3 +1023,9 @@ html[data-theme='modern'] .saver-time { font-weight: 800; }
 .hist-fil .swatch { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--line); }
 .hist-cost { display: flex; flex-direction: column; align-items: flex-end; }
 .hist-euros { font-family: var(--display); font-size: 18px; color: var(--sec); }
+
+.wifi-line { display: flex; align-items: stretch; }
+.wifi-line .wifi-main { flex: 1; min-width: 0; }
+.wifi-more { width: 52px; flex-shrink: 0; background: transparent; border: 0; border-left: 1px solid var(--line); color: var(--prim); font-size: 20px; letter-spacing: 1px; cursor: pointer; }
+.wifi-row.is-away { opacity: 0.75; }
+span.wifi-main { cursor: default; }

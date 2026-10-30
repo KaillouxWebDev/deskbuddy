@@ -107,19 +107,66 @@ def _terse(out):
     return rows
 
 
+def _saved_profiles():
+    """Profils Wi-Fi enregistrés par NetworkManager, avec le vrai nom du réseau (SSID).
+    Le nom du profil peut différer du SSID (« preconfigured » pour le Wi-Fi saisi à l'installation, « Box 1 »...)."""
+    rows = _terse(_nmcli("-t", "-f", "UUID,TYPE,NAME", "connection", "show"))
+    out = []
+    for r in rows:
+        if len(r) < 3 or r[1] != "802-11-wireless":
+            continue
+        try:
+            ssid = _nmcli("-g", "802-11-wireless.ssid", "connection", "show", "uuid", r[0]).strip()
+        except Refused:
+            ssid = ""
+        out.append({"uuid": r[0], "name": r[2], "ssid": ssid or r[2]})
+    return out
+
+
+def _harden_profile(uuid):
+    """Comme un téléphone : reconnexion automatique sans limite d'essais, et pas d'économie d'énergie Wi-Fi
+    (sur le Pi 3, elle provoque des décrochages)."""
+    try:
+        _nmcli("connection", "modify", "uuid", uuid,
+               "connection.autoconnect", "yes", "connection.autoconnect-retries", "0",
+               "802-11-wireless.powersave", "2")
+    except Refused as e:
+        print(f"[hostd] profil {uuid} : {e}", file=sys.stderr, flush=True)
+
+
+def harden_all():
+    try:
+        for p in _saved_profiles():
+            _harden_profile(p["uuid"])
+    except Exception as e:  # noqa: BLE001 (NetworkManager absent hors Pi)
+        print(f"[hostd] Wi-Fi : {e}", file=sys.stderr, flush=True)
+
+
 def wifi_status(_):
-    dev = _terse(_nmcli("-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"))
-    conns = _terse(_nmcli("-t", "-f", "NAME,TYPE", "connection", "show"))
+    dev = _terse(_nmcli("-t", "-f", "DEVICE,TYPE,STATE", "device"))
     wl = next((r for r in dev if r[0] == IFACE or (len(r) > 1 and r[1] == "wifi")), None)
+    current = None
+    if wl and len(wl) > 2 and wl[2] == "connected":
+        for r in _terse(_nmcli("-t", "-f", "ACTIVE,SSID", "device", "wifi", "list", "--rescan", "no")):
+            if len(r) > 1 and r[0] == "yes":
+                current = r[1]
+                break
     return {
         "available": bool(wl),
-        "current": wl[3] if wl and len(wl) > 3 and wl[2] == "connected" else None,
-        "saved": [r[0] for r in conns if len(r) > 1 and r[1] == "802-11-wireless"],
+        "country": _country_now(),
+        "current": current,
+        "saved": sorted({p["ssid"] for p in _saved_profiles()}),
     }
 
 
 def wifi_scan(_):
-    out = _nmcli("-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "yes", timeout=40)
+    try:
+        out = _nmcli("-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "yes", timeout=40)
+    except Refused:
+        # Balayage refusé (déjà en cours, ou trop rapproché) : on attend et on relit la liste fraîche.
+        import time
+        time.sleep(4)
+        out = _nmcli("-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "auto", timeout=40)
     best = {}
     for r in _terse(out):
         if len(r) < 4 or not r[1].strip():
@@ -133,37 +180,71 @@ def wifi_scan(_):
 
 
 def wifi_connect(args):
+    """Réseau déjà enregistré : on réutilise son mot de passe. Nouveau mot de passe : on met à jour le profil
+    existant (pas de doublon). Échec : le profil est GARDÉ (un échec vient souvent d'un signal faible ou d'un
+    partage de connexion endormi, pas forcément du mot de passe)."""
     ssid = _ssid(args)
     pw = args.get("password")
     if pw is not None and (not isinstance(pw, str) or not 8 <= len(pw) <= 63 or not pw.isprintable()):
         raise Refused("mot de passe Wi-Fi : 8 à 63 caractères")
-    saved = wifi_status({})["saved"]
-    if not pw and ssid in saved:
-        _nmcli("connection", "up", "id", ssid)
+    profiles = [p for p in _saved_profiles() if p["ssid"] == ssid]
+    if profiles:
+        uuid = profiles[0]["uuid"]
+        for extra in profiles[1:]:  # doublons laissés par les anciennes versions
+            try:
+                _nmcli("connection", "delete", "uuid", extra["uuid"])
+            except Refused:
+                pass
+        if pw:
+            _nmcli("connection", "modify", "uuid", uuid, "wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", pw)
+        _harden_profile(uuid)
+        _nmcli("connection", "up", "uuid", uuid)
         return True
-    if pw and ssid in saved:
-        try:
-            _nmcli("connection", "delete", "id", ssid)
-        except Refused:
-            pass
     cmd = ["device", "wifi", "connect", ssid, "ifname", IFACE]
     if pw:
         cmd[4:4] = ["password", pw]
     try:
         _nmcli(*cmd)
-    except Refused:
-        # Essai raté : on supprime le profil créé pour pouvoir retaper le mot de passe.
-        if ssid not in saved:
-            try:
-                _nmcli("connection", "delete", "id", ssid)
-            except Refused:
-                pass
-        raise
+    finally:
+        # Réussi ou non, le profil créé est réglé pour se reconnecter tout seul.
+        for p in _saved_profiles():
+            if p["ssid"] == ssid:
+                _harden_profile(p["uuid"])
     return True
 
 
+# Pays Wi-Fi (domaine réglementaire) : sans lui, le Pi n'écoute que les canaux 1 à 11. Les box françaises
+# passent souvent seules sur les canaux 12 ou 13 : le réseau « disparaît » alors de la liste.
+def _country_now():
+    try:
+        out = subprocess.run(["iw", "reg", "get"], capture_output=True, text=True, timeout=10).stdout
+        m = re.search(r"^country (\w\w):", out, re.M)
+        return m.group(1) if m else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def wifi_country(args):
+    cc = args.get("cc")
+    if not isinstance(cc, str) or not re.fullmatch(r"[A-Z]{2}", cc):
+        raise Refused("code pays invalide")
+    if _country_now() == cc:
+        return cc
+    if os.path.exists("/usr/bin/raspi-config"):
+        # Réglage persistant (survit au redémarrage), comme raspi-config > Localisation > Pays Wi-Fi.
+        subprocess.run(["raspi-config", "nonint", "do_wifi_country", cc], capture_output=True, timeout=30)
+    subprocess.run(["iw", "reg", "set", cc], capture_output=True, timeout=10)
+    print(f"[hostd] pays Wi-Fi : {cc}", flush=True)
+    return _country_now() or cc
+
+
 def wifi_forget(args):
-    _nmcli("connection", "delete", "id", _ssid(args))
+    ssid = _ssid(args)
+    found = [p for p in _saved_profiles() if p["ssid"] == ssid]
+    if not found:
+        raise Refused("réseau inconnu")
+    for p in found:
+        _nmcli("connection", "delete", "uuid", p["uuid"])
     return True
 
 
@@ -188,6 +269,7 @@ COMMANDS = {
     "wifi.scan": wifi_scan,
     "wifi.connect": wifi_connect,
     "wifi.forget": wifi_forget,
+    "wifi.country": wifi_country,
     "timezone.set": timezone_set,
 }
 
@@ -235,6 +317,14 @@ def main():
     os.chmod(sock_dir, 0o750)
     os.chmod(SOCKET_PATH, 0o660)
     print(f"[hostd] à l'écoute sur {SOCKET_PATH}", flush=True)
+    # Profils Wi-Fi existants (dont celui de l'installation) : reconnexion automatique illimitée, sans économie d'énergie.
+    threading.Thread(target=harden_all, daemon=True).start()
+    # Pays Wi-Fi par défaut si aucun n'est réglé (le dashboard l'ajuste ensuite selon le lieu).
+    if _country_now() in (None, "00"):
+        try:
+            wifi_country({"cc": os.environ.get("HOSTD_WIFI_COUNTRY", "FR")})
+        except Exception as e:  # noqa: BLE001
+            print(f"[hostd] pays Wi-Fi : {e}", file=sys.stderr, flush=True)
     srv.serve_forever()
 
 

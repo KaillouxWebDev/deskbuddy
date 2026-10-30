@@ -41,7 +41,8 @@ export function startWifi(store) {
       store.toast('success', 'WI-FI CONNECTÉ', ssid);
     } catch (err) {
       const wrongPw = /secrets were required|802-1x|password|mot de passe/i.test(err.message);
-      store.toast('warn', 'WI-FI : ÉCHEC', wrongPw ? `${ssid} · mot de passe incorrect ?` : `${ssid} · ${err.message}`, { sticky: true });
+      // Le réseau reste enregistré : un échec vient souvent d'un signal faible ou d'un partage de connexion endormi.
+      store.toast('warn', 'WI-FI : ÉCHEC', wrongPw ? `${ssid} · signal trop faible ou mot de passe changé (··· > nouveau mot de passe)` : `${ssid} · ${err.message}`, { sticky: true });
     } finally {
       store.update('wifi', { connecting: null });
       status();
