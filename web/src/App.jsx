@@ -10,6 +10,7 @@ import SleepOverlay from './components/SleepOverlay.jsx';
 import Radar from './tabs/Radar.jsx';
 import Printer from './tabs/Printer.jsx';
 import Clock from './tabs/Clock.jsx';
+import Cyber from './tabs/Cyber.jsx';
 import Space from './tabs/Space.jsx';
 import Weather from './tabs/Weather.jsx';
 import System from './tabs/System.jsx';
@@ -19,7 +20,8 @@ export const TABS = [
   { id: 'weather', label: 'MÉTÉO' },
   { id: 'sky', label: 'ESPACE' },
   { id: 'printer', label: 'IMPRIMANTE' },
-  { id: 'clock', label: 'HORLOGE' }
+  { id: 'clock', label: 'HORLOGE' },
+  { id: 'cyber', label: 'CYBER' }
 ];
 
 export default function App() {
@@ -110,6 +112,7 @@ export default function App() {
         printerAlert={Boolean(alert)}
         satInView={satInView}
         wxLevel={wxLevel}
+        cyberAlert={Boolean(state.cyber?.feed?.some((v) => v.ex && Date.now() - v.t < 86_400_000))}
         onSleep={() => send('screen:sleep')}
         settingsOpen={tab === 'system'}
         onSettings={toggleSettings}
@@ -122,6 +125,7 @@ export default function App() {
         {tab === 'sky' && <Space {...props} />}
         {tab === 'printer' && <Printer {...props} />}
         {tab === 'clock' && <Clock {...props} />}
+        {tab === 'cyber' && <Cyber {...props} />}
         {tab === 'system' && <System {...props} mode={mode} />}
       </main>
       <Toasts

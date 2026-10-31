@@ -1,5 +1,6 @@
 import React from 'react';
 import { hhmm } from '../lib/format.js';
+import TabIcon from './TabIcons.jsx';
 
 export function MoonIcon() {
   return (
@@ -34,24 +35,35 @@ export function GearIcon() {
   );
 }
 
-export default function Header({ tabs, tab, setTab, date, connected, online, printerAlert, satInView, wxLevel, onSleep, settingsOpen, onSettings, unread, onNotifs }) {
+export default function Header({ tabs, tab, setTab, date, connected, online, printerAlert, satInView, wxLevel, cyberAlert, onSleep, settingsOpen, onSettings, unread, onNotifs }) {
   return (
     <header className="header">
       <nav className="tabs" aria-label="Onglets">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={`tab${tab === t.id ? ' is-active' : ''}${t.id === 'printer' && printerAlert ? ' has-alert' : ''}`}
-            aria-current={tab === t.id ? 'page' : undefined}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-            {t.id === 'printer' && printerAlert && <span className="dot dot-danger blink" aria-label="alerte" />}
-            {t.id === 'sky' && satInView && <span className="dot pulse" aria-label="satellite en vue" />}
-            {t.id === 'weather' && wxLevel && <span className={`dot dot-wx-${wxLevel}${wxLevel === 'jaune' ? '' : ' blink'}`} aria-label={`vigilance ${wxLevel}`} />}
-          </button>
-        ))}
+        {tabs.map((t) => {
+          const dot =
+            t.id === 'printer' && printerAlert ? <span className="dot dot-danger blink" aria-label="alerte" /> :
+            t.id === 'sky' && satInView ? <span className="dot pulse" aria-label="satellite en vue" /> :
+            t.id === 'weather' && wxLevel ? <span className={`dot dot-wx-${wxLevel}${wxLevel === 'jaune' ? '' : ' blink'}`} aria-label={`vigilance ${wxLevel}`} /> :
+            t.id === 'cyber' && cyberAlert ? <span className="dot dot-danger" aria-label="faille exploitée récente" /> :
+            null;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              className={`tab${tab === t.id ? ' is-active' : ''}${t.id === 'printer' && printerAlert ? ' has-alert' : ''}`}
+              aria-current={tab === t.id ? 'page' : undefined}
+              aria-label={t.label}
+              onClick={() => setTab(t.id)}
+            >
+              {/* Icône à position fixe, nom de l'onglet actif dans une zone de largeur fixe : rien ne bouge d'un thème à l'autre. */}
+              <span className="tab-icon">
+                <TabIcon id={t.id} />
+                {dot}
+              </span>
+              {tab === t.id && <span className="tab-label">{t.label}</span>}
+            </button>
+          );
+        })}
       </nav>
       <div className="header-right">
         {/* LIVE : tout va bien · SANS INTERNET : le Pi tourne mais rien ne se met à jour · DÉCONNECTÉ : l'écran ne joint plus le serveur */}

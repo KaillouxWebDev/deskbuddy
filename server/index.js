@@ -17,6 +17,7 @@ import { startLocation } from './modules/location.js';
 import { startWifi } from './modules/wifi.js';
 import { startNet } from './modules/net.js';
 import { startNotifications } from './modules/notifications.js';
+import { startCyber } from './modules/cyber.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(here, '../dist');
@@ -67,6 +68,7 @@ startPrinter(store, {
   dataDir: DATA_DIR
 });
 startTimers(store, { dataDir: DATA_DIR });
+startCyber(store, { dataDir: DATA_DIR });
 
 /* ---------- Fichiers statiques (front buildé) ---------- */
 

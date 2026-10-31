@@ -64,8 +64,10 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
 }
 .tabs { display: flex; align-items: stretch; }
 .tab {
-  min-width: 96px;
-  padding: 0 12px;
+  width: 58px;
+  flex-shrink: 0;
+  padding: 0;
+  position: relative;
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -79,7 +81,12 @@ button:focus-visible { outline: 2px solid var(--sec); outline-offset: 2px; }
   gap: 8px;
   cursor: pointer;
 }
-.tab.is-active { background: var(--soft); color: var(--prim); border-bottom-color: var(--prim); }
+.tab.is-active { background: var(--soft); color: var(--prim); border-bottom-color: var(--prim); width: 172px; justify-content: flex-start; padding-left: 17px; }
+/* Onglets en icônes : icône de 24 px toujours au même endroit, nom de l'onglet actif dans une zone fixe. */
+.tab-icon { position: relative; width: 24px; height: 24px; flex-shrink: 0; display: block; }
+.tab-icon svg { display: block; }
+.tab-icon .dot { position: absolute; top: -3px; right: -5px; width: 8px; height: 8px; box-shadow: 0 0 0 2px var(--bg); }
+.tab-label { width: 112px; font-size: 13px; letter-spacing: 1.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; line-height: 1; }
 .tab.has-alert { border-bottom-color: var(--danger); }
 .header-right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--dim); }
 .live { display: flex; align-items: center; gap: 6px; }
@@ -856,11 +863,13 @@ html[data-theme='wopr'] .radar-ring { stroke: #1d4f99; }
 
 /* LCARS : onglets en pilules colorées, cadres en coude, tout en capitales étroites. */
 html[data-theme='lcars'] body { text-transform: uppercase; font-size: 15px; letter-spacing: 0.5px; }
-html[data-theme='lcars'] .tab { border-radius: 18px; margin: 6px 3px; padding: 0 12px; color: #000 !important; background: #ff9966; font-weight: 700; font-size: 16px; border-bottom: 0 !important; }
+html[data-theme='lcars'] .tab { border-radius: 18px; margin: 6px 2px; width: 54px; color: #000 !important; background: #ff9966; font-weight: 700; font-size: 16px; border-bottom: 0 !important; }
 html[data-theme='lcars'] .tab:nth-child(2) { background: #cc99cc; }
 html[data-theme='lcars'] .tab:nth-child(3) { background: #9999ff; }
 html[data-theme='lcars'] .tab:nth-child(4) { background: #ffcc66; }
 html[data-theme='lcars'] .tab:nth-child(5) { background: #cc6666; }
+html[data-theme='lcars'] .tab:nth-child(6) { background: #99ccff; }
+html[data-theme='lcars'] .tab.is-active { width: 168px; padding-left: 15px; }
 html[data-theme='lcars'] .tab.is-active { background: #ffcc99 !important; }
 html[data-theme='lcars'] .tab .dot { background: #000; }
 html[data-theme='lcars'] .card { border: 0; border-left: 14px solid #cc99cc; border-top: 8px solid #cc99cc; border-radius: 26px 0 0 0; background: #000; }
@@ -937,7 +946,7 @@ html[data-theme='dmg'] .callsign,
 html[data-theme='dmg'] .caption,
 html[data-theme='dmg'] .label,
 html[data-theme='dmg'] .boot-title { font-family: 'Press Start 2P', monospace; }
-html[data-theme='dmg'] .tab { font-size: 10px; }
+html[data-theme='dmg'] .tab-label { font-size: 9px; letter-spacing: 0; }
 html[data-theme='dmg'] .callsign { font-size: 20px; }
 html[data-theme='dmg'] .caption,
 html[data-theme='dmg'] .label { font-size: 8px; line-height: 1.7; }
@@ -1049,3 +1058,79 @@ button.toast-body { background: transparent; border: 0; padding: 0; margin: 0; t
 .notif-count { margin-left: 8px; font-size: 12px; color: var(--text-soft); }
 .notif-text { font-size: 13px; color: var(--text-soft); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .notif-empty { padding: 24px 4px; }
+
+/* ---------- Onglet CYBER ---------- */
+.cy { gap: 12px; }
+.cy-left { flex: 1.12; gap: 8px; }
+.cy-right { flex: 1; padding: 12px 14px; min-height: 0; }
+.cy-stats { display: flex; align-items: center; gap: 9px; min-height: 30px; flex-shrink: 0; }
+.cy-stat { font-family: var(--display); font-size: 16px; color: var(--text); white-space: nowrap; }
+.cy-stat span { font-size: 10px; letter-spacing: 1px; color: var(--dim); }
+.cy-stat.cy-critique { color: var(--danger); }
+.cy-stat.cy-elevee { color: var(--sec); }
+.cy-spark { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+.cy-spark i { width: 5px; background: var(--prim); opacity: 0.6; display: block; }
+.cy-spark i:last-child { opacity: 1; }
+.cy-kw-btn { margin: 0 0 0 auto !important; align-self: center; white-space: nowrap; font-size: 12px !important; padding: 0 9px !important; min-height: 30px !important; }
+.cy-cats { display: flex; gap: 4px; flex-shrink: 0; }
+.cy-cat { flex: 1 1 auto; min-height: 32px; padding: 0 6px; background: transparent; border: 1px solid var(--line); color: var(--dim); font-family: var(--display); font-size: 10px; letter-spacing: 0.5px; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.cy-cat.is-on { border-color: var(--prim); color: var(--bg); background: var(--prim); }
+.cy-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; scrollbar-width: none; }
+.cy-row { flex-shrink: 0; width: 100%; padding: 0; background: var(--soft); border: 1px solid var(--line); border-left: 3px solid var(--line); color: var(--text); text-align: left; font: inherit; cursor: pointer; display: block; }
+.cy-row.is-on { border-color: var(--prim); }
+.cy-row.is-exploited { border-left-color: var(--danger); }
+.cy-row-main { width: 100%; display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 8px; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cy-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cy-row-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.cy-prod { flex: 1; min-width: 0; font-family: var(--display); font-size: 14px; }
+.cy-ago { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+.cy-row-sub { font-size: 11px; color: var(--text-soft); }
+.cy-flag { color: var(--danger); font-size: 13px; }
+.cy-star { color: var(--sec); font-size: 13px; }
+.cy-badge { flex-shrink: 0; width: 46px; height: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid currentColor; color: var(--dim); font-size: 9px; letter-spacing: 1px; line-height: 1.1; }
+.cy-badge b { font-family: var(--display); font-size: 15px; letter-spacing: 0; font-weight: 400; }
+.cy-badge.cy-critique { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.cy-badge.cy-elevee { color: var(--sec); }
+.cy-badge.cy-moyenne { color: var(--prim); }
+.cy-badge.cy-cert { color: var(--prim); font-size: 10px; }
+.cy-badge.cy-cert.is-alert { color: var(--danger); }
+.cy-badge.cy-grp { color: var(--text-soft); font-family: var(--display); font-size: 14px; border-style: dashed; }
+.cy-group .cy-row-main { border-left: 0; }
+.cy-group-list { display: flex; flex-direction: column; padding: 0 8px 6px 64px; gap: 2px; }
+.cy-sub { display: flex; gap: 10px; align-items: center; min-height: 32px; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--text-soft); font: inherit; font-size: 12px; text-align: left; cursor: pointer; padding: 0 4px; min-width: 0; }
+.cy-sub.is-on { color: var(--prim); }
+.cy-sub-score { font-family: var(--display); width: 30px; flex-shrink: 0; }
+.cy-detail { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.cy-d-head { display: flex; align-items: center; gap: 12px; }
+.cy-d-id { display: flex; flex-direction: column; min-width: 0; }
+.cy-d-cve { font-size: 22px; line-height: 1.1; }
+.cy-d-title { font-family: var(--display); font-size: 16px; color: var(--text); line-height: 1.25; }
+.cy-d-flags { display: flex; flex-wrap: wrap; gap: 5px; }
+.cy-pill { font-size: 10px; letter-spacing: 1px; padding: 3px 7px; border: 1px solid var(--line); color: var(--text-soft); white-space: nowrap; }
+.cy-pill.is-danger { border-color: var(--danger); color: var(--danger); }
+.cy-pill.is-warn { border-color: var(--sec); color: var(--sec); }
+.cy-pill.is-star { border-color: var(--sec); color: var(--sec); }
+.cy-d-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; scrollbar-width: none; }
+.cy-vec { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 8px 10px; background: var(--soft); border: 1px solid var(--line); }
+.cy-vec > div { display: flex; flex-direction: column; gap: 1px; font-size: 12px; color: var(--text); min-width: 0; }
+.cy-vec > div:last-child { grid-column: 1 / -1; }
+.cy-d-desc { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-soft); }
+.cy-d-desc b { color: var(--text); font-weight: 600; }
+.cy-d-list { margin: 0; padding-left: 16px; font-size: 12px; color: var(--text-soft); }
+.cy-d-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-shrink: 0; }
+.cy-qr { width: 78px; height: 78px; flex-shrink: 0; image-rendering: pixelated; }
+.cy-kw-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; scrollbar-width: none; }
+.cy-kw { display: inline-flex; align-items: center; gap: 6px; padding: 0 0 0 12px; height: 36px; border: 1px solid var(--line); background: var(--soft); font-size: 13px; color: var(--text-soft); }
+.cy-kw.has-hits { border-color: var(--sec); color: var(--text); }
+.cy-kw button { width: 34px; height: 34px; background: transparent; border: 0; border-left: 1px solid var(--line); color: var(--dim); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.cy-add { padding: 0 14px; white-space: nowrap; }
+.cy-24 { white-space: nowrap; }
+.cy .segmented .seg { white-space: nowrap; letter-spacing: 1px; font-size: 12px; }
+.cy-more { flex-shrink: 0; min-height: 44px; }
+/* Barres de filtres de l'onglet CYBER : police de texte (et non d'affichage) pour tenir dans tous les thèmes. */
+.cy-stat, .cy-cat, .cy .segmented .seg { font-family: var(--mono); }
+.cy .segmented .seg { font-size: 11px; letter-spacing: 0.5px; }
+.cy-stats { overflow: hidden; }
+.cy-spark { flex-shrink: 1; overflow: hidden; }
+html[data-theme='dmg'] .cy-d-cve { font-size: 14px; }
+.cy-d-cve { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
