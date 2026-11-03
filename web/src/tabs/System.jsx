@@ -3,6 +3,7 @@ import { FAMILIES, PASTELS, PRIMARIES, SECONDARIES, THEMES, themeOf } from '../l
 import NumPad from '../components/NumPad.jsx';
 import FieldPad from '../components/FieldPad.jsx';
 import WifiModal from '../components/WifiModal.jsx';
+import PrinterSetupModal from '../components/PrinterSetupModal.jsx';
 import { CloseIcon } from '../components/Toasts.jsx';
 import { uptime } from '../lib/format.js';
 
@@ -202,6 +203,13 @@ export default function System({ state, settings, send, mode }) {
             <span className="ellipsis place-val">{wifi.connecting ? `connexion à ${wifi.connecting}…` : wifi.current || (wifi.available === false ? 'non pilotable' : 'non connecté')}</span>
             <span className="sec small">CHANGER</span>
           </button>
+          <button type="button" className="place-row" onClick={() => setModal('printer')}>
+            <span className="label">A1</span>
+            <span className="ellipsis place-val">
+              {state.printer?.link?.host ? `${state.printer.link.host}${state.printer.connected ? '' : ' (non connectée)'}` : 'non configurée'}
+            </span>
+            <span className="sec small">RÉGLER</span>
+          </button>
         </div>
         <div className="card options">
           <span className="caption">OPTIONS</span>
@@ -302,6 +310,7 @@ export default function System({ state, settings, send, mode }) {
         </div>
       )}
       {modal === 'wifi' && <WifiModal wifi={wifi} send={send} onClose={() => setModal(null)} />}
+      {modal === 'printer' && <PrinterSetupModal link={state.printer?.link} setup={state.printerSetup} send={send} onClose={() => setModal(null)} />}
     </div>
   );
 }

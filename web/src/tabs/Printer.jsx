@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import StockModal from '../components/StockModal.jsx';
+import PrinterSetupModal from '../components/PrinterSetupModal.jsx';
 import HistoryModal from '../components/HistoryModal.jsx';
 import { duration, hhmm, int } from '../lib/format.js';
 
@@ -27,11 +28,16 @@ function Temp({ label, value, target }) {
   );
 }
 
-function Notice({ title, children }) {
+function Notice({ title, children, onSetup }) {
   return (
     <div className="notice">
       <span className="caption">{title}</span>
       <p>{children}</p>
+      {onSetup && (
+        <button type="button" className="spool-btn is-primary notice-btn" onClick={onSetup}>
+          RÉGLER LA CONNEXION
+        </button>
+      )}
     </div>
   );
 }
@@ -39,13 +45,18 @@ function Notice({ title, children }) {
 export default function Printer({ state, now, send }) {
   const [showStock, setShowStock] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
   const p = state.printer;
+  const setupModal = showSetup && <PrinterSetupModal link={p?.link} setup={state.printerSetup} send={send} onClose={() => setShowSetup(false)} />;
   if (!p) return <Notice title="IMPRIMANTE">Connexion au serveur…</Notice>;
   if (p.configured === false) {
     return (
-      <Notice title="IMPRIMANTE NON CONFIGURÉE">
-        Renseigne BAMBU_HOST, BAMBU_SERIAL et BAMBU_ACCESS_CODE dans le fichier .env du Pi, puis redémarre le conteneur.
-      </Notice>
+      <>
+        <Notice title="IMPRIMANTE NON CONFIGURÉE" onSetup={() => setShowSetup(true)}>
+          Indique l'adresse IP, le numéro de série et le code d'accès LAN de l'A1, ou lance une recherche sur le réseau.
+        </Notice>
+        {setupModal}
+      </>
     );
   }
   // Dashboard emmené ailleurs : l'imprimante est sur le réseau de la maison, ce n'est pas une panne.
@@ -57,7 +68,14 @@ export default function Printer({ state, now, send }) {
     );
   }
   if (!p.connected && p.state === undefined) {
-    return <Notice title="IMPRIMANTE">Connexion à l'A1…{p.error ? ` (${p.error})` : ''}</Notice>;
+    return (
+      <>
+        <Notice title="IMPRIMANTE" onSetup={p.error ? () => setShowSetup(true) : null}>
+          Connexion à l'A1{p.link?.host ? ` (${p.link.host})` : ''}…{p.error ? ` ${p.error}.` : ''}
+        </Notice>
+        {setupModal}
+      </>
+    );
   }
 
   const st = STATE[p.state] || { label: p.state, tone: 'dim' };
@@ -79,6 +97,12 @@ export default function Printer({ state, now, send }) {
           <b>TOUCHER POUR RESYNCHRONISER</b>
         </button>
       )}
+      {stale && !p.connected && (
+        <button type="button" className="stale printer-stale printer-stale-2" onClick={() => setShowSetup(true)}>
+          RÉGLER LA CONNEXION
+        </button>
+      )}
+      {setupModal}
       <section className="card progress-card" aria-label="Progression">
         <div className="card-head">
           <span className="caption">PROGRESSION</span>

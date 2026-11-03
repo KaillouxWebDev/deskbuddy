@@ -1138,3 +1138,14 @@ html[data-theme='dmg'] .cy-d-cve { font-size: 14px; }
 .printer-wrap { position: relative; }
 .printer-stale { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); z-index: 5; min-height: 36px; padding: 0 14px; background: var(--panel); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .printer-stale b { font-weight: 600; letter-spacing: 1px; }
+/* Réglage de la connexion à l'imprimante */
+.notice-btn { align-self: center; padding: 0 18px; margin-top: 6px; }
+.printer-stale-2 { top: 34px; }
+.ps-fields { padding: 4px 14px; flex-shrink: 0; }
+.ps-scan { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex-shrink: 0; }
+.ps-scan > .spool-btn { padding: 0 14px; }
+.ps-found { min-height: 40px; display: flex; flex-direction: column; justify-content: center; padding: 2px 12px; background: var(--soft); border: 1px solid var(--line); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ps-found.is-on { border-color: var(--prim); }
+.ps-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ps-go { padding: 0 18px; flex-shrink: 0; }
+.spool-btn:disabled { opacity: 0.45; cursor: default; }
