@@ -310,13 +310,47 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
   const pushAll = () =>
     client.publish(`device/${serial}/request`, JSON.stringify({ pushing: { sequence_id: '0', command: 'pushall' } }));
 
+  /*
+   * Chien de garde. L'A1 peut garder la connexion ouverte (elle répond encore aux « ping » MQTT) tout en
+   * ayant cessé d'envoyer son état : le dashboard restait figé sur une vieille impression. On surveille donc
+   * le dernier message reçu ; après 2 min de silence on redemande l'état complet, et sans réponse 20 s plus
+   * tard on coupe la connexion pour en ouvrir une neuve.
+   */
+  let lastMsgAt = 0; // dernier état reçu (affiché à l'écran)
+  let connectedAt = 0;
+  let probeAt = 0;
+  let wasConnected = false;
+  const reconnect = (why) => {
+    console.warn(`[printer] ${why} : reconnexion à l'imprimante`);
+    store.update('printer', { connected: false });
+    client.stream?.destroy(); // provoque « close », puis la reconnexion automatique (5 s)
+  };
+  const resync = () => {
+    if (!client.connected) return reconnect('resynchronisation demandée hors connexion');
+    probeAt = Date.now();
+    pushAll();
+  };
+
   client.on('connect', () => {
+    if (!wasConnected) console.warn(`[printer] connectée à l'imprimante (${host})`);
+    wasConnected = true;
+    connectedAt = Date.now();
+    probeAt = 0;
     store.update('printer', { configured: true, connected: true, error: null });
     client.subscribe(`device/${serial}/report`);
     pushAll();
   });
-  client.on('close', () => store.update('printer', { connected: false }));
-  client.on('error', (err) => store.update('printer', { error: err.message }));
+  client.on('close', () => {
+    if (wasConnected) console.warn("[printer] connexion à l'imprimante perdue");
+    wasConnected = false;
+    store.update('printer', { connected: false });
+  });
+  let lastErr = null;
+  client.on('error', (err) => {
+    if (err.message !== lastErr) console.error(`[printer] ${err.message}`); // une imprimante éteinte répète la même erreur toutes les 5 s
+    lastErr = err.message;
+    store.update('printer', { error: err.message });
+  });
   client.on('message', (_topic, buf) => {
     let msg;
     try {
@@ -325,12 +359,23 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
       return;
     }
     if (!msg.print) return;
+    lastMsgAt = Date.now();
+    probeAt = 0;
+    lastErr = null;
     deepMerge(raw, msg.print);
-    handle({ ...derive(raw), configured: true, connected: true });
+    handle({ ...derive(raw), configured: true, connected: true, lastMsgAt });
   });
 
+  setInterval(() => {
+    if (!client.connected) return;
+    const now = Date.now();
+    if (probeAt && now - probeAt > 20_000) return reconnect('pas de réponse à la demande d\'état');
+    if (!probeAt && now - Math.max(lastMsgAt, connectedAt) > 120_000) resync();
+  }, 10_000);
   // Resynchronisation complète toutes les 10 min (sans abuser : l'imprimante n'aime pas les pushall répétés).
-  setInterval(() => client.connected && pushAll(), 10 * 60_000);
+  setInterval(() => client.connected && resync(), 10 * 60_000);
+  // Bouton « resynchroniser » de l'écran
+  store.register('printer:resync', () => resync());
 }
 
 /* ---------- Mode démo : MOCK_PRINTER=1 (tester l'UI sans imprimante) ---------- */

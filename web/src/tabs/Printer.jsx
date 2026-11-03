@@ -61,6 +61,9 @@ export default function Printer({ state, now, send }) {
   }
 
   const st = STATE[p.state] || { label: p.state, tone: 'dim' };
+  // Données figées : connexion perdue, ou plus de message depuis plus de 2 min pendant une impression.
+  const silentMin = p.lastMsgAt ? Math.floor((now - p.lastMsgAt) / 60_000) : 0;
+  const stale = !p.mock && (!p.connected || (silentMin >= 3 && ['RUNNING', 'PAUSE', 'PREPARE'].includes(p.state)));
   const active = ['RUNNING', 'PAUSE', 'PREPARE', 'SLICING'].includes(p.state);
   const pct = p.percent ?? 0;
   const circ = 2 * Math.PI * 96;
@@ -68,7 +71,14 @@ export default function Printer({ state, now, send }) {
   const slots = p.trays?.length ? p.trays : p.external ? [{ slot: 'ext', ...p.external }] : [];
 
   return (
-    <div className="split">
+    <div className="split printer-wrap">
+      {stale && (
+        <button type="button" className="stale printer-stale" onClick={() => send('printer:resync')}>
+          {p.connected ? `Pas de nouvelles de l'A1 depuis ${silentMin} min` : `Connexion à l'A1 perdue${p.error ? ` (${p.error})` : ''}`}
+          {' · '}
+          <b>TOUCHER POUR RESYNCHRONISER</b>
+        </button>
+      )}
       <section className="card progress-card" aria-label="Progression">
         <div className="card-head">
           <span className="caption">PROGRESSION</span>
