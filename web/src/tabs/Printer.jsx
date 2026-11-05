@@ -42,6 +42,8 @@ function Notice({ title, children, onSetup }) {
   );
 }
 
+const eur = (v) => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
 export default function Printer({ state, now, send }) {
   const [showStock, setShowStock] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -131,9 +133,20 @@ export default function Printer({ state, now, send }) {
         <div className="print-meta">
           <div className="small soft center ellipsis">{p.file || 'aucun fichier'}</div>
           {p.state === 'RUNNING' && end && <div className="small sec center">fin estimée vers {end}</div>}
-          {p.job?.estimate && (
-            <div className="small dim center">
-              ~{p.job.estimate.grams} g{p.job.spool ? ` ${p.job.spool.toLowerCase()}` : ''} · ~{p.job.estimate.cost.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+          {active && p.job && (
+            // Coût de l'impression en cours : estimation du slicer (filament + électricité), et part déjà dépensée.
+            <div className="job-cost">
+              {p.job.estimate ? (
+                <>
+                  <span className="job-cost-main">
+                    {eur(p.job.estimate.cost)}
+                    <span className="small dim"> · {p.job.estimate.grams} g{p.job.spool ? ` ${p.job.spool.toLowerCase()}` : ''}</span>
+                  </span>
+                  <span className="small soft">déjà ~{eur((p.job.estimate.cost * pct) / 100)} dépensés</span>
+                </>
+              ) : (
+                <span className="small dim">{p.job.infoError ? 'Coût : fichier pas encore lisible, nouvel essai en cours' : 'Coût : lecture du fichier…'}</span>
+              )}
             </div>
           )}
         </div>
