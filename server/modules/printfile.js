@@ -59,7 +59,7 @@ export function parseSliceInfo(xml, plateIdx) {
   return plates.find((p) => p.index === plateIdx) || plates.find((p) => p.filaments.length) || null;
 }
 
-export async function fetchPrintInfo({ host, accessCode, subtask, gcodeFile, dataDir }) {
+export async function fetchPrintInfo({ host, accessCode, subtask, gcodeFile, dataDir, strict = false }) {
   const logFile = path.join(dataDir, 'printfile-debug.log');
   const lines = [];
   const log = (s) => lines.push(`${new Date().toISOString()} ${s}`);
@@ -82,7 +82,9 @@ export async function fetchPrintInfo({ host, accessCode, subtask, gcodeFile, dat
     const base = (s) => (s || '').split('/').pop().replace(/\.gcode\.3mf$|\.3mf$/i, '').toLowerCase();
     const wanted = [base(subtask), base(gcodeFile)].filter(Boolean);
     candidates.sort((a, b) => b.date - a.date);
-    const pick = candidates.find((c) => wanted.some((w) => base(c.name) === w)) || candidates.find((c) => wanted.some((w) => base(c.name).includes(w))) || candidates[0];
+    const named = candidates.find((c) => wanted.some((w) => base(c.name) === w)) || candidates.find((c) => wanted.some((w) => base(c.name).includes(w)));
+    // strict : rattrapage après coup, le fichier le plus récent n'est sûrement plus le bon.
+    const pick = named || (strict ? null : candidates[0]);
     if (!pick) {
       log('aucun fichier .3mf trouvé');
       return null;

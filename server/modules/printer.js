@@ -94,18 +94,33 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     return { perG: (s.filamentPriceKg ?? 10) / 1000, kwh: s.kwhPrice ?? 0.1871, watts: s.printerWatts ?? 100 };
   };
 
-  /** Ce que le slicer a calculé pour l'impression en cours (poids par filament, durée). */
-  const loadInfo = async (j, d) => {
-    const info = mock
-      ? { file: d.file, predictionS: 5400, filaments: [{ id: 1, type: 'PLA', color: '#F7D959', usedG: 42.5, usedM: 14.2 }] } // couleur volontairement ≠ bobine chargée
-      : await fetchPrintInfo({ host, accessCode, subtask: d.file, gcodeFile: d.gcodeFile, dataDir });
-    if (job !== j) return; // impression déjà terminée entre-temps
+  // Adresse et code d'accès ACTUELS de l'imprimante (réglables à l'écran depuis la v0.13.2 : le .env peut être périmé).
+  let link = null;
+  const creds = () => (link ? link.config() : { host, accessCode });
+
+  /** Lecture du fichier d'impression sur l'imprimante (FTPS) : poids par filament et durée prévus par le slicer. */
+  const readInfo = (d, strict = false) =>
+    mock
+      ? Promise.resolve({ file: d.file, predictionS: 5400, filaments: [{ id: 1, type: 'PLA', color: '#F7D959', usedG: 42.5, usedM: 14.2 }] }) // couleur volontairement ≠ bobine chargée
+      : fetchPrintInfo({ ...creds(), subtask: d.file, gcodeFile: d.gcodeFile, dataDir, strict }).catch((err) => {
+          console.error('[printer] fichier d\'impression :', err.message);
+          return null;
+        });
+
+  /** Ce que le slicer a calculé pour l'impression en cours. En cas d'échec (imprimante occupée, FTP lent),
+   *  nouvel essai après 1, 3 puis 10 min tant que l'impression continue. */
+  const RETRY_MIN = [1, 3, 10];
+  const loadInfo = async (j, d, attempt = 0) => {
+    const info = await readInfo(d);
+    if (job !== j) return; // impression déjà terminée entre-temps (la fin s'occupe alors de relire le fichier)
     if (!info) {
       j.infoError = true;
       store.update('printer', { job: publicJob(j) });
+      if (attempt < RETRY_MIN.length) j.retry = setTimeout(() => job === j && loadInfo(j, d, attempt + 1), RETRY_MIN[attempt] * 60_000);
       return;
     }
     j.info = info;
+    j.infoError = false;
     const p = prices();
     const grams = info.filaments.reduce((sum, f) => sum + f.usedG, 0);
     const elec = ((info.predictionS || 0) / 3600) * (p.watts / 1000) * p.kwh;
@@ -120,8 +135,9 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
    * l'emplacement de l'AMS que l'imprimante utilise (tray_now) ; la couleur ne sert qu'en multicolore.
    */
   const pickFor = (j) => (f) => {
-    if (j.info?.filaments.length === 1 && j.slots.size === 1) {
-      const s = spools.bySlot([...j.slots][0]);
+    const slots = [...(j.slots || [])];
+    if (j.info?.filaments.length === 1 && slots.length === 1) {
+      const s = spools.bySlot(slots[0]);
       if (s) return s;
     }
     return spools.match(f);
@@ -170,47 +186,85 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
       }))
     );
 
-  /** Fin d'impression (terminée, ou annulée au prorata de l'avancement) : décompte du stock et coût réel. */
-  const finishJob = (fraction) => {
-    const j = job;
-    job = null;
-    if (!j) return null;
+  /** Consommation réelle d'une impression : décompte du stock et détail pour l'historique. */
+  const usage = (j, fraction, hours) => {
     const p = prices();
-    const hours = (Date.now() - j.start) / 3600_000;
     const elec = hours * (p.watts / 1000) * p.kwh;
-    let used = [];
-    let grams = null;
-    if (j.info) {
-      used = spools.consume(j.info.filaments, fraction, pickFor(j));
-      grams = used.reduce((sum, u) => sum + u.grams, 0);
-      log(`Consommé ${Math.round(grams)} g (${used.map((u) => u.spool).join(', ')}) · coût ~${euros(grams * p.perG + elec)}`, 'info');
-    } else {
-      log('Consommation inconnue : fichier d\'impression illisible', 'info');
-    }
-    const filamentCost = grams === null ? null : grams * p.perG;
-    const cost = (filamentCost ?? 0) + elec;
+    if (!j.info) return { grams: null, filaments: [], filamentCost: null, elecCost: elec, cost: elec };
+    const used = spools.consume(j.info.filaments, fraction, pickFor(j));
+    const grams = used.reduce((sum, u) => sum + u.grams, 0);
+    log(`Consommé ${Math.round(grams)} g (${used.map((u) => u.spool).join(', ')}) · coût ~${euros(grams * p.perG + elec)}`, 'info');
+    return {
+      grams: Math.round(grams * 10) / 10,
+      filaments: used.map((u) => ({ label: u.spool, material: u.material, idx: u.idx, colorName: u.colorName, color: u.color, grams: u.grams, known: u.known })),
+      filamentCost: grams * p.perG,
+      elecCost: elec,
+      cost: grams * p.perG + elec
+    };
+  };
+
+  const saveHistory = (fn) => {
     try {
-      const hist = readHistory();
-      hist.unshift({
-        at: Date.now(),
-        start: j.start,
-        durationMin: Math.round(hours * 60),
-        name: (j.name || j.info?.file || 'Sans nom').replace(/(\.gcode)?\.3mf$/i, ''),
-        status: fraction >= 1 ? 'terminée' : 'annulée',
-        fraction,
-        grams: grams === null ? null : Math.round(grams * 10) / 10,
-        filaments: used.map((u) => ({ label: u.spool, material: u.material, idx: u.idx, colorName: u.colorName, color: u.color, grams: u.grams, known: u.known })),
-        filamentCost,
-        elecCost: elec,
-        cost
-      });
+      const hist = fn(readHistory());
       writeJson(historyFile, hist.slice(0, 100), true);
       publishHistory(hist);
     } catch (err) {
       console.error('[printer] historique :', err.message);
     }
-    return grams === null ? null : { grams: Math.round(grams), cost };
   };
+
+  /*
+   * Rattrapage : une impression enregistrée sans consommation (fichier illisible à ce moment-là) est relue
+   * plus tard sur l'imprimante (après 2, 10 puis 30 min, et au démarrage du dashboard pour les 7 derniers jours).
+   * Le stock est alors décompté et l'historique complété avec les prix actuels.
+   */
+  const CATCHUP_MIN = [2, 10, 30];
+  const catchUp = async (at, attempt = 0) => {
+    const entry = readHistory().find((e) => e.at === at);
+    if (!entry || entry.grams != null) return;
+    const info = await readInfo({ file: entry.file || entry.name, gcodeFile: entry.gcodeFile || null }, true);
+    if (!info) {
+      if (attempt < CATCHUP_MIN.length) setTimeout(() => catchUp(at, attempt + 1), CATCHUP_MIN[attempt] * 60_000);
+      return;
+    }
+    const fresh = readHistory().find((e) => e.at === at);
+    if (!fresh || fresh.grams != null) return; // complété entre-temps
+    const u = usage({ info, slots: fresh.slots || [] }, fresh.fraction ?? 1, (fresh.durationMin || 0) / 60);
+    saveHistory((hist) => hist.map((e) => (e.at === at ? { ...e, ...u, recovered: Date.now() } : e)));
+    store.toast('info', 'CONSOMMATION RETROUVÉE', `${fresh.name} · ${Math.round(u.grams)} g · ${euros(u.cost)}, stock mis à jour`);
+  };
+
+  /** Fin d'impression (terminée, ou annulée au prorata de l'avancement) : décompte du stock et coût réel. */
+  const finishJob = async (fraction) => {
+    const j = job;
+    job = null;
+    if (!j) return null;
+    clearTimeout(j.retry);
+    const hours = (Date.now() - j.start) / 3600_000;
+    // Fichier pas encore lu : dernier essai maintenant (l'imprimante est libre en fin d'impression).
+    if (!j.info && j.d) j.info = await readInfo(j.d);
+    if (!j.info) log('Consommation pas encore connue : nouvel essai de lecture du fichier dans 2 min', 'info');
+    const u = usage(j, fraction, hours);
+    const at = Date.now();
+    saveHistory((hist) => [
+      {
+        at,
+        start: j.start,
+        durationMin: Math.round(hours * 60),
+        name: (j.name || j.info?.file || 'Sans nom').replace(/(\.gcode)?\.3mf$/i, ''),
+        file: j.d?.file || null,
+        gcodeFile: j.d?.gcodeFile || null,
+        slots: [...j.slots],
+        status: fraction >= 1 ? 'terminée' : 'annulée',
+        fraction,
+        ...u
+      },
+      ...hist
+    ]);
+    if (u.grams == null) setTimeout(() => catchUp(at), CATCHUP_MIN[0] * 60_000);
+    return u.grams == null ? null : { grams: Math.round(u.grams), cost: u.cost };
+  };
+
   const journal = [];
   const log = (text, level = 'info') => {
     journal.unshift({ at: Date.now(), text, level });
@@ -238,7 +292,7 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
 
     // Début de suivi : à chaque nouvelle impression (ou au redémarrage du dashboard pendant une impression).
     if (!job && ACTIVE.includes(d.state)) {
-      job = { start: Date.now(), slots: new Set(), name: d.file || null };
+      job = { start: Date.now(), slots: new Set(), name: d.file || null, d: { file: d.file, gcodeFile: d.gcodeFile } };
       loadInfo(job, d);
     }
     // Emplacements de l'AMS réellement utilisés pendant l'impression (hors chauffe et purge de fin).
@@ -251,8 +305,8 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     if (prev && prev.state !== d.state) {
       if (d.state === 'FINISH') {
         log(`Impression terminée : ${d.file || 'sans nom'}`, 'success');
-        const res = finishJob(1);
-        store.toast('success', 'IMPRESSION TERMINÉE', `${d.file || ''}${res ? ` · ${res.grams} g · ${euros(res.cost)}` : ''}`, { sticky: true });
+        const file = d.file || '';
+        finishJob(1).then((res) => store.toast('success', 'IMPRESSION TERMINÉE', `${file}${res ? ` · ${res.grams} g · ${euros(res.cost)}` : ''}`, { sticky: true }));
       } else if (job && (d.state === 'FAILED' || d.state === 'IDLE') && ACTIVE.includes(prev.state)) {
         // Impression annulée : on décompte au prorata de l'avancement.
         finishJob((prev.percent || 0) / 100);
@@ -289,11 +343,16 @@ export function startPrinter(store, { host, serial, accessCode, mock, dataDir })
     }
   });
 
+  // Impressions récentes restées sans consommation : on retente une fois l'imprimante joignable.
+  setTimeout(() => {
+    for (const e of readHistory()) if (e.grams == null && Date.now() - e.at < 7 * 86_400_000) catchUp(e.at, 1);
+  }, 90_000);
+
   if (mock) return startMock(store, handle);
 
   store.set('printer', { configured: true, connected: false, journal: [] });
   // Connexion, réglages modifiables à l'écran, recherche sur le réseau et chien de garde : voir printerLink.js
-  startLink(store, {
+  link = startLink(store, {
     dataDir,
     env: { host, serial, accessCode },
     deepMerge,

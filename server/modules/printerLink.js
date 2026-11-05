@@ -274,5 +274,5 @@ export function startLink(store, { dataDir, env, onReport, deepMerge }) {
 
   store.set('printerSetup', { scanning: false, testing: false, found: null, test: null });
   connect();
-  return { resync };
+  return { resync, config: () => ({ host: cfg.host, accessCode: cfg.accessCode }) };
 }
